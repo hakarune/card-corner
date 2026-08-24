@@ -23,15 +23,22 @@ def test_standard_deck_has_52_unique_cards():
         assert sum(1 for c in deck if c.rank == rank) == 4
 
 
-def test_old_maid_deck_has_52_cards_with_one_odd():
-    # 52 standard - 1 Queen (removed to make room) + 1 odd card = 52.
+def test_old_maid_deck_has_49_cards_with_exactly_one_unmatched():
+    # 52 standard - 4 Queens (all removed, keeps every rank's count even) + 1
+    # sentinel odd card = 49. This guarantees exactly one permanently
+    # unmatched card in the whole deck.
     deck = build_old_maid_deck()
-    assert len(deck) == 52
+    assert len(deck) == 49
     odd_cards = [c for c in deck if c.is_odd_one]
     assert len(odd_cards) == 1
     queens = [c for c in deck if not c.is_odd_one and c.rank == Rank.QUEEN]
-    assert len(queens) == 3
-    assert len(set(deck)) == 52
+    assert len(queens) == 0
+    assert len(set(deck)) == 49
+    # every remaining rank still has its full, even count of 4
+    for rank in Rank:
+        if rank == Rank.QUEEN:
+            continue
+        assert sum(1 for c in deck if not c.is_odd_one and c.rank == rank) == 4
 
 
 @pytest.mark.parametrize("num_pairs", [1, 6, 13])
@@ -69,14 +76,14 @@ def test_shuffled_is_seed_reproducible_but_seed_dependent():
 
 
 def test_deal_all_round_robins_uneven_deck():
-    deck = build_old_maid_deck()  # 52 cards
+    deck = build_old_maid_deck()  # 49 cards
     hands = deal_all(deck, 3)  # doesn't divide evenly by 3
-    assert sum(len(h) for h in hands) == 52
+    assert sum(len(h) for h in hands) == 49
     sizes = sorted(len(h) for h in hands)
-    assert sizes == [17, 17, 18]
+    assert sizes == [16, 16, 17]
     # no duplicates/missing cards across hands
     all_cards = [c for h in hands for c in h]
-    assert len(set(all_cards)) == 52
+    assert len(set(all_cards)) == 49
 
 
 def test_deal_count_leaves_correct_stock():

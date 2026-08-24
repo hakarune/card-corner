@@ -16,12 +16,14 @@ def build_standard_deck() -> list[Card]:
 
 
 def build_old_maid_deck() -> list[Card]:
-    """Standard 52 minus one Queen, plus the unique odd "Old Maid" card (52 total)."""
-    deck = [
-        c
-        for c in build_standard_deck()
-        if not (c.rank == Rank.QUEEN and c.suit == Suit.CLUBS)
-    ]
+    """Standard 52 with all four Queens removed, plus the single, permanently
+    unmatched "Old Maid" card (49 total). Removing *all* Queens (rather than
+    just one) keeps every remaining rank's count even (4 copies each), so
+    the sentinel odd card is the only card in the deck that can never find
+    a pair. Leaving an odd number of Queens in would create a second,
+    accidental "loser card" once the last Queen ran out of partners.
+    """
+    deck = [c for c in build_standard_deck() if c.rank != Rank.QUEEN]
     deck.append(make_odd_card())
     return deck
 
