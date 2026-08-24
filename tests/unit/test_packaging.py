@@ -97,3 +97,43 @@ def test_version_in_control_matches_version_module():
     import debpkg.build_deb as build_deb
 
     assert build_deb.__version__ == __version__
+
+
+def test_desktop_entry_exec_and_icon_match_package_name(built_deb, tmp_path):
+    import debpkg.build_deb as build_deb
+
+    extract_dir = tmp_path / "desktop_check"
+    subprocess.run(["dpkg-deb", "-x", str(built_deb), str(extract_dir)], check=True)
+    desktop_file = extract_dir / "usr" / "share" / "applications" / f"{build_deb.PACKAGE_NAME}.desktop"
+    content = desktop_file.read_text()
+    assert f"Exec={build_deb.PACKAGE_NAME}" in content
+    assert f"Icon={build_deb.PACKAGE_NAME}" in content
+
+
+def test_version_bump_produces_a_differently_named_deb(tmp_path, monkeypatch):
+    """Simulates a release: build twice with different versions and confirm
+    dpkg-deb names them so apt/dpkg recognize the second as an upgrade
+    (same Package:, differing Version: baked into the filename).
+    """
+    import debpkg.build_deb as build_deb
+
+    monkeypatch.setattr(build_deb, "__version__", "0.1.0-test")
+    first = build_deb.build(tmp_path / "out1")
+    monkeypatch.setattr(build_deb, "__version__", "0.2.0-test")
+    second = build_deb.build(tmp_path / "out2")
+
+    assert first.name != second.name
+    assert "0.1.0-test" in first.name
+    assert "0.2.0-test" in second.name
+
+    first_info = subprocess.run(
+        ["dpkg-deb", "--info", str(first)], capture_output=True, text=True, check=True
+    ).stdout
+    second_info = subprocess.run(
+        ["dpkg-deb", "--info", str(second)], capture_output=True, text=True, check=True
+    ).stdout
+    # Same package identity, different version -- what makes this an
+    # upgrade rather than a conflicting/unrelated package to dpkg.
+    assert "Package: card-corner" in first_info and "Package: card-corner" in second_info
+    assert "Version: 0.1.0-test" in first_info
+    assert "Version: 0.2.0-test" in second_info

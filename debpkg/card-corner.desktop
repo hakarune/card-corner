@@ -2,7 +2,7 @@
 Type=Application
 Name=Card Corner
 Comment=Kid-friendly card games: Go Fish, Old Maid, Memory, and Letter Match
-Exec=card-corner
-Icon=card-corner
+Exec={package_name}
+Icon={package_name}
 Terminal=false
 Categories=Game;KidsGame;

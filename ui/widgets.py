@@ -9,6 +9,8 @@ from typing import Callable
 
 import pygame
 
+from audio.manager import audio
+
 from . import theme
 
 
@@ -39,6 +41,7 @@ class Button:
             self.hovered = self.rect.collidepoint(event.pos)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.rect.collidepoint(event.pos):
+                audio.play_sfx("button")
                 self.on_click()
                 return True
         return False

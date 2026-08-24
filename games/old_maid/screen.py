@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pygame
 
+from audio.manager import audio
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from ui import theme
 from ui.pause import PauseMenu
@@ -50,6 +51,7 @@ class OldMaidScreen(Screen):
             on_quit_to_menu=lambda: self.go_to(self.on_menu()),
             on_quit_app=self._quit_app,
         )
+        audio.play_sfx("card_move")  # the initial deal
         self._maybe_start_ai_turn()
 
     def _quit_app(self) -> None:
@@ -66,8 +68,10 @@ class OldMaidScreen(Screen):
 
     def _run_ai_turn(self) -> None:
         result = self.game.draw(AI_NAME, HUMAN_NAME)
+        audio.play_sfx("card_move")
         if result.paired_ranks:
             self.message = f"{AI_NAME} drew a match! Pair set aside."
+            audio.play_sfx("match")
         else:
             self.message = f"{AI_NAME} drew a card — no match yet."
         self._waiting_for_ai = False
@@ -76,9 +80,11 @@ class OldMaidScreen(Screen):
     def _human_draw(self) -> None:
         if self.game.game_over or self.game.is_ai_turn():
             return
+        audio.play_sfx("card_select")
         result = self.game.draw(HUMAN_NAME, AI_NAME)
         if result.paired_ranks:
             self.message = "You got a match! Nicely done."
+            audio.play_sfx("match")
         else:
             self.message = "No match this time — your turn is over."
         self._maybe_start_ai_turn()
@@ -91,9 +97,11 @@ class OldMaidScreen(Screen):
         # itself must be unmistakable.
         if self.game.loser == HUMAN_NAME:
             self.message = f"You lost this round — {AI_NAME} got away with it! Try again?"
+            audio.play_sfx("loss")
         elif self.game.loser == AI_NAME:
             self.message = f"You win! {AI_NAME} got stuck with the Old Maid!"
             self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
+            audio.play_sfx("win")
         else:
             self.message = "Good game!"
         left_rect, right_rect = modal_button_rects(self.size)

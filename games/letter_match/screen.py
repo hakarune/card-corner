@@ -8,6 +8,7 @@ from typing import Callable, Optional
 
 import pygame
 
+from audio.manager import audio
 from ui import theme
 from ui.pause import PauseMenu
 from ui.screen import Screen
@@ -62,10 +63,12 @@ class LetterMatchScreen(Screen):
         if not result.accepted:
             return
         if result.pos2 is None:
+            audio.play_sfx("card_select")
             return  # first pick of the pair, just wait for the second click
 
         if result.matched:
             self.message = "Great match!"
+            audio.play_sfx("match")
             rect = dict(self._tile_rects).get(pos)
             if rect is not None:
                 self._confetti = Confetti(rect, count=26, duration=1.0)
@@ -74,6 +77,7 @@ class LetterMatchScreen(Screen):
                 self._schedule(0.6, self._on_complete)
         else:
             self.message = "Not quite — try again!"
+            audio.play_sfx("miss")
             first, second = result.pos1, result.pos2
 
             def clear() -> None:
@@ -84,6 +88,7 @@ class LetterMatchScreen(Screen):
     def _on_complete(self) -> None:
         self.message = f"All done! Accuracy: {round(self.game.accuracy * 100)}%"
         self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
+        audio.play_sfx("win")
         left_rect, right_rect = modal_button_rects(self.size)
         self._end_buttons = [
             Button(left_rect, "Play Again", self._restart, color=theme.SUCCESS, font_size=26),

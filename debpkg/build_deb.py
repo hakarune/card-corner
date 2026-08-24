@@ -69,7 +69,10 @@ def _write_launcher(staging: Path) -> None:
 def _write_desktop_entry(staging: Path) -> None:
     apps_dir = staging / "usr" / "share" / "applications"
     apps_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(REPO_ROOT / "debpkg" / "card-corner.desktop", apps_dir / f"{PACKAGE_NAME}.desktop")
+    # Templated (not copied verbatim) so Exec=/Icon= can never drift out of
+    # sync with PACKAGE_NAME / the actual installed launcher script name.
+    template = (REPO_ROOT / "debpkg" / "card-corner.desktop").read_text()
+    (apps_dir / f"{PACKAGE_NAME}.desktop").write_text(template.format(package_name=PACKAGE_NAME))
 
 
 def _write_icon(staging: Path) -> None:

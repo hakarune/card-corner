@@ -12,6 +12,7 @@ from typing import Callable, Optional
 
 import pygame
 
+from audio.manager import audio
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from ui import theme
 from ui.pause import PauseMenu
@@ -87,17 +88,21 @@ class MemoryScreen(Screen):
     def _run_ai_turn(self) -> None:
         result = self.game.take_ai_turn()
         self._visible.add(result.pos1)
+        audio.play_sfx("card_move")
 
         def reveal_second() -> None:
             self._visible.add(result.pos2)
+            audio.play_sfx("card_move")
 
             def finish() -> None:
                 if result.matched:
                     self.message = f"{AI_NAME} found a match!"
+                    audio.play_sfx("match")
                 else:
                     self._visible.discard(result.pos1)
                     self._visible.discard(result.pos2)
                     self.message = f"{AI_NAME} didn't find a match."
+                    audio.play_sfx("miss")
                 self._maybe_start_ai_turn()
 
             self._schedule(RESOLVE_PAUSE, finish)
@@ -113,6 +118,7 @@ class MemoryScreen(Screen):
         if self._human_first is None:
             self._human_first = pos
             self._visible.add(pos)
+            audio.play_sfx("card_select")
             return
         if pos == self._human_first:
             return
@@ -120,13 +126,16 @@ class MemoryScreen(Screen):
         first, second = self._human_first, pos
         self._human_first = None
         self._visible.add(second)
+        audio.play_sfx("card_select")
         result = self.game.flip_two(HUMAN_NAME, first, second)
 
         if result.matched:
             self.message = "Match! Go again."
+            audio.play_sfx("match")
             self._maybe_start_ai_turn()
         else:
             self.message = "No match this time — try again!"
+            audio.play_sfx("miss")
 
             def hide() -> None:
                 self._visible.discard(first)
@@ -142,8 +151,10 @@ class MemoryScreen(Screen):
         if human_score > ai_score:
             self.message = f"You win, {human_score} to {ai_score}!"
             self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
+            audio.play_sfx("win")
         elif ai_score > human_score:
             self.message = f"{AI_NAME} wins, {ai_score} to {human_score}. Play again?"
+            audio.play_sfx("loss")
         else:
             self.message = f"It's a tie, {human_score} to {ai_score}!"
         left_rect, right_rect = modal_button_rects(self.size)

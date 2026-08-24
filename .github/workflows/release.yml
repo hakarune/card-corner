@@ -41,6 +41,7 @@ jobs:
 
       - name: Install the built .deb on this (otherwise fresh) runner
         run: |
+          sudo apt-get update
           sudo apt-get install -y ./dist/card-corner_*.deb
 
       - name: Verify the installed package integrates correctly

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pygame
 
+from audio.manager import audio
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from core.card import Rank
 from ui import theme
@@ -49,6 +50,7 @@ class GoFishScreen(Screen):
             on_quit_to_menu=lambda: self.go_to(self.on_menu()),
             on_quit_app=self._quit_app,
         )
+        audio.play_sfx("card_move")  # the initial deal
         self._maybe_start_ai_turn()
 
     def _quit_app(self) -> None:
@@ -67,32 +69,41 @@ class GoFishScreen(Screen):
         result = self.game.take_ai_turn()
         if result.cards_transferred:
             self.message = f"{AI_NAME} asks You for {result.rank.name.title()}s... and gets {result.cards_transferred}!"
+            audio.play_sfx("match")
         elif result.asker_drew_matched:
             self.message = f"{AI_NAME} asks You for {result.rank.name.title()}s, goes fish, and draws one!"
+            audio.play_sfx("match")
         else:
             self.message = f"{AI_NAME} asks You for {result.rank.name.title()}s... Go Fish!"
+            audio.play_sfx("miss")
         self._waiting_for_ai = False
         self._maybe_start_ai_turn()
 
     def _human_ask(self, rank: Rank) -> None:
         if self.game.game_over or self.game.is_ai_turn():
             return
+        audio.play_sfx("card_select")
         result = self.game.ask(HUMAN_NAME, AI_NAME, rank)
         rank_name = rank.name.title()
         if result.cards_transferred:
             self.message = f"{AI_NAME} hands over {result.cards_transferred} {rank_name}(s)! Go again."
+            audio.play_sfx("match")
         elif result.asker_drew_matched:
             self.message = f"Go Fish! But you drew a {rank_name} yourself — go again!"
+            audio.play_sfx("match")
         else:
             self.message = "Go Fish! Your turn is over."
+            audio.play_sfx("miss")
         self._maybe_start_ai_turn()
 
     def _on_game_over(self) -> None:
         if self.game.winner == HUMAN_NAME:
             self.message = "You collected the most books! Great job!"
             self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
+            audio.play_sfx("win")
         elif self.game.winner == AI_NAME:
             self.message = f"{AI_NAME} collected the most books this time. Play again?"
+            audio.play_sfx("loss")
         else:
             self.message = "It's a tie! Nicely played."
         left_rect, right_rect = modal_button_rects(self.size)

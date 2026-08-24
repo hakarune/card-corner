@@ -14,6 +14,7 @@ import sys
 
 import pygame
 
+from audio.manager import audio
 from games.go_fish.screen import GoFishScreen
 from games.letter_match.screen import LetterMatchScreen
 from games.memory.screen import MemoryScreen
@@ -86,10 +87,12 @@ def main() -> None:
     clock = pygame.time.Clock()
 
     current: Screen = make_launcher(LOGICAL_SIZE)
+    audio.start_music()
 
     running = True
     while running:
         dt = clock.tick(60) / 1000.0
+        audio.refresh_music_volume()
 
         # Fullscreen/windowed can change from inside a screen (main menu
         # icon, in-game pause overlay) -- the source of truth is the
@@ -126,6 +129,7 @@ def main() -> None:
         if nxt is not None:
             current = nxt
 
+    audio.stop_music()
     pygame.quit()
     sys.exit(0)
 
