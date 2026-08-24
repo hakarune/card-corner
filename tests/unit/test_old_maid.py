@@ -144,7 +144,11 @@ def test_turn_skips_players_with_empty_hands():
     assert game.current_player_name == "C"
 
 
-def test_game_ends_when_one_active_player_remains():
+def test_the_player_left_holding_the_odd_card_is_recorded_as_the_loser():
+    # Spec §9's explicit ask: being left holding Old Maid is a LOSS, not a
+    # win. p1 is the only active player left and is the one still holding
+    # the odd (Old Maid) card -- everyone else has already emptied their
+    # hand via pairing -- so p1 must be the loser, not the winner.
     game = make_game()
     p1, p2 = game.order
     game.players[p1].hand.cards = [make_odd_card()]
@@ -152,6 +156,7 @@ def test_game_ends_when_one_active_player_remains():
     game._check_game_over()
     assert game.game_over
     assert game.loser == p1
+    assert game.players[game.loser].hand.cards == [make_odd_card()]
 
 
 def test_game_ends_stalemate_at_turn_cap():
