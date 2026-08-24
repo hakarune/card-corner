@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# venv
+.venv/
+venv/
+env/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Test/gauntlet output
+tests/gauntlet/reports/*.json
+tests/gauntlet/reports/*.png
+!tests/gauntlet/reports/.gitkeep
