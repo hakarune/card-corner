@@ -29,3 +29,7 @@ Thumbs.db
 tests/gauntlet/reports/*.json
 tests/gauntlet/reports/*.png
 !tests/gauntlet/reports/.gitkeep
+
+# .deb build artifacts (packaging/build_deb.py output)
+/build/
+/dist/

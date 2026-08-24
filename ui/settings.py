@@ -46,7 +46,7 @@ def _save() -> None:
     try:
         SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
         SETTINGS_PATH.write_text(json.dumps(_settings, indent=2))
-    except OSError:
+    except (OSError, TypeError):
         pass
 
 

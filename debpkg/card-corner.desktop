@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Card Corner
+Comment=Kid-friendly card games: Go Fish, Old Maid, Memory, and Letter Match
+Exec=card-corner
+Icon=card-corner
+Terminal=false
+Categories=Game;KidsGame;

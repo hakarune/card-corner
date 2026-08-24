@@ -8,9 +8,12 @@ from typing import Callable
 
 import pygame
 
+import webbrowser
+
 from core.ai.base import Difficulty, DIFFICULTY_LABELS
 from . import settings, theme
 from .screen import Screen
+from .update_check import UpdateChecker
 from .widgets import Button, draw_text
 
 
@@ -106,6 +109,20 @@ class LauncherScreen(Screen):
         self.fullscreen_rect = pygame.Rect(size[0] - icon_size - 24, 24, icon_size, icon_size)
         self.mute_rect = pygame.Rect(size[0] - 2 * icon_size - 40, 24, icon_size, icon_size)
 
+        # A quiet, manual, parent-facing action -- not automatic, not
+        # nagging. Small text link tucked in a corner rather than a
+        # prominent button.
+        self._update_checker = UpdateChecker()
+        self.update_check_rect = pygame.Rect(size[0] - 220, size[1] - 44, 200, 34)
+
+    def _check_for_updates(self) -> None:
+        self._update_checker.start()
+
+    def _open_release_page(self) -> None:
+        result = self._update_checker.result
+        if result is not None and result.ok:
+            webbrowser.open(result.release_url)
+
     def _toggle_fullscreen(self) -> None:
         settings.set("fullscreen", not settings.get("fullscreen"))
 
@@ -120,6 +137,12 @@ class LauncherScreen(Screen):
                 self._toggle_fullscreen()
             elif self.mute_rect.collidepoint(event.pos):
                 self._toggle_mute()
+            elif self.update_check_rect.collidepoint(event.pos):
+                result = self._update_checker.result
+                if result is not None and result.ok and result.update_available:
+                    self._open_release_page()
+                elif not self._update_checker.checking:
+                    self._check_for_updates()
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(theme.BACKGROUND)
@@ -149,6 +172,21 @@ class LauncherScreen(Screen):
                 bold=True,
                 center=True,
             )
+        self._draw_update_check(surface)
+
+    def _draw_update_check(self, surface: pygame.Surface) -> None:
+        result = self._update_checker.result
+        if self._update_checker.checking:
+            label, color = "Checking for updates...", theme.TEXT_MUTED
+        elif result is None:
+            label, color = "Check for Updates", theme.TEXT_MUTED
+        elif not result.ok:
+            label, color = "Couldn't check for updates", theme.TEXT_MUTED
+        elif result.update_available:
+            label, color = f"Update available ({result.latest_version}) →", theme.SECONDARY
+        else:
+            label, color = "You're up to date!", theme.SUCCESS
+        draw_text(surface, label, self.update_check_rect.center, size=18, color=color, center=True)
 
     def _draw_icon_buttons(self, surface: pygame.Surface) -> None:
         for rect in (self.fullscreen_rect, self.mute_rect):

@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify tag matches version.py
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(python3 -c 'from version import __version__; print(__version__)')"
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "Tag v$TAG does not match version.py's __version__ ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Install build-time dependencies (pygame, for icon generation)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-mixer-2.0-0 libsdl2-ttf-2.0-0
+          pip install pygame
+
+      - name: Build the .deb
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: python3 debpkg/build_deb.py dist
+
+      - name: Install the built .deb on this (otherwise fresh) runner
+        run: |
+          sudo apt-get install -y ./dist/card-corner_*.deb
+
+      - name: Verify the installed package integrates correctly
+        run: |
+          test -x /usr/bin/card-corner
+          test -f /usr/share/applications/card-corner.desktop
+          test -f /usr/share/icons/hicolor/256x256/apps/card-corner.png
+          dpkg -s card-corner | grep -q "Status: install ok installed"
+
+      - name: Upload release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/card-corner_*.deb
+          generate_release_notes: true

@@ -61,6 +61,13 @@ def test_missing_key_falls_back_to_default_without_crashing(isolated_settings_pa
     assert settings.get("sfx_volume") == settings.DEFAULTS["sfx_volume"]
 
 
+def test_non_json_serializable_value_does_not_raise(isolated_settings_path):
+    settings.set("fullscreen", object())  # json.dumps can't serialize this
+    # In-memory value is still whatever was set -- just never hits disk.
+    assert settings.get("fullscreen") is not None
+    assert not isolated_settings_path.exists()
+
+
 def test_unwritable_path_does_not_raise(isolated_settings_path, monkeypatch):
     # Point at a path whose parent can never be created (a file, not a dir).
     bad_parent = isolated_settings_path.parent / "not_a_dir"
