@@ -65,6 +65,7 @@ class GoFishGame:
         self.stock: list = stock
 
         self.history: list[AskRecord] = []
+        self._turn_failed_ranks: list[Rank] = []
         self.turn_index = 0
         self.turn_count = 0
         self.game_over = False
@@ -95,7 +96,9 @@ class GoFishGame:
         if strategy is None:
             raise ValueError(f"{name} is not AI-controlled")
         opponents = self.other_player_names(name)
-        target, rank = strategy.decide_ask(self.players[name].hand, opponents, self.history)
+        target, rank = strategy.decide_ask(
+            self.players[name].hand, opponents, self.history, tuple(self._turn_failed_ranks)
+        )
         return self.ask(name, target, rank)
 
     def ask(self, asker_name: str, target_name: str, rank: Rank) -> AskResult:
@@ -127,6 +130,7 @@ class GoFishGame:
                 result.books_claimed_by_asker += self._claim_books(asker_name)
             result.went_again = not asker.hand.is_empty()
         else:
+            self._turn_failed_ranks.append(rank)
             drawn = self._draw(asker_name)
             if drawn is not None:
                 result.asker_drew = True
@@ -137,6 +141,7 @@ class GoFishGame:
 
         self.turn_count += 1
         if not result.went_again:
+            self._turn_failed_ranks = []
             self._advance_turn()
         self._check_game_over()
         return result

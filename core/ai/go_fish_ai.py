@@ -34,28 +34,95 @@ class GoFishStrategy(Strategy):
         my_hand: Hand,
         opponent_names: list[str],
         history: list[AskRecord],
+        same_turn_failed_ranks: tuple[Rank, ...] = (),
     ) -> tuple[str, Rank]:
-        """Return (target_name, rank) to ask for. `my_hand` must be non-empty."""
+        """Return (target_name, rank) to ask for. `my_hand` must be non-empty.
+
+        `same_turn_failed_ranks` lists (oldest-first) the ranks this player
+        has already asked and missed on earlier in this same continuous "go
+        again" turn — re-asking one of those is a *guaranteed* miss, since a
+        target's hand cannot change mid-turn while it isn't their turn. How
+        much of that list a tier actually remembers is itself a difficulty
+        lever: EASY ignores it entirely (may repeat itself); MEDIUM only
+        remembers its single most recent miss (a short attention span);
+        HARD remembers every miss so far this turn.
+        """
         candidate_ranks = list(my_hand.ranks_present())
         if not candidate_ranks:
             raise ValueError("cannot ask with an empty hand")
         if not opponent_names:
             raise ValueError("no opponents to ask")
 
-        rank_weights = self._rank_weights(my_hand, candidate_ranks)
+        exclude = self._same_turn_exclusions(same_turn_failed_ranks)
+        smarter = [r for r in candidate_ranks if r not in exclude]
+        if smarter:
+            candidate_ranks = smarter
+
+        rank_weights = self._rank_weights(my_hand, candidate_ranks, opponent_names, history)
         rank = self.weighted_choice(candidate_ranks, rank_weights)
 
         opponent_weights = self._opponent_weights(opponent_names, rank, history)
         target = self.weighted_choice(opponent_names, opponent_weights)
         return target, rank
 
-    def _rank_weights(self, hand: Hand, ranks: list[Rank]) -> list[float]:
-        counts = [hand.count_of_rank(r) for r in ranks]
+    def _same_turn_exclusions(self, same_turn_failed_ranks: tuple[Rank, ...]) -> set[Rank]:
         if self.difficulty is Difficulty.EASY:
-            return [1.0 for _ in ranks]
+            return set()
         if self.difficulty is Difficulty.MEDIUM:
-            return [1.0 + c for c in counts]
-        return [1.0 + c**2 for c in counts]  # HARD: chase near-complete books
+            return {same_turn_failed_ranks[-1]} if same_turn_failed_ranks else set()
+        return set(same_turn_failed_ranks)  # HARD: remembers every miss this turn
+
+    def _rank_weights(
+        self,
+        hand: Hand,
+        ranks: list[Rank],
+        opponent_names: list[str],
+        history: list[AskRecord],
+    ) -> list[float]:
+        weights = []
+        for rank in ranks:
+            count = hand.count_of_rank(rank)
+            weights.append(self._base_weight(count) * self._best_opponent_multiplier(rank, opponent_names, history))
+        return weights
+
+    def _base_weight(self, count: int) -> float:
+        """Weight a candidate rank by how many copies are *not* already in
+        this hand (4 - count). This is deliberately the opposite of the
+        intuitive "go for the rank you're closest to completing a book
+        with": since a player ends up asking about every rank they hold at
+        some point regardless of order (nothing stops them asking about a
+        different rank next turn), asking order alone doesn't change how
+        many books a full game nets — what it *does* change is how often
+        an ask actually hits (letting the asker go again vs. losing the
+        turn). More copies still unseen elsewhere (opponents' hands + the
+        stock combined) means a higher chance an opponent is holding at
+        least one, i.e. a higher hit rate — so a rank you hold only 1 of
+        (3 unseen) is a *better* bet than one you hold 3 of (1 unseen).
+        """
+        if self.difficulty is Difficulty.EASY:
+            return 1.0
+        remaining_unseen = 4 - count
+        if self.difficulty is Difficulty.MEDIUM:
+            return 1.0 + remaining_unseen
+        return 1.0 + remaining_unseen**2  # HARD leans into it harder
+
+    def _best_opponent_multiplier(
+        self, rank: Rank, opponent_names: list[str], history: list[AskRecord]
+    ) -> float:
+        """How promising is this rank, at best, across all opponents? Folding
+        this into rank selection (rather than only opponent selection)
+        matters most in 2-player games, where there's only ever one
+        opponent to pick from and opponent-weighting alone would otherwise
+        never actually influence a decision.
+        """
+        if self.difficulty is Difficulty.EASY:
+            return 1.0
+        discount = 0.6 if self.difficulty is Difficulty.MEDIUM else 0.3
+        best = 0.0
+        for name in opponent_names:
+            confirmed_absent = any(h.target == name and h.rank == rank for h in history)
+            best = max(best, discount if confirmed_absent else 1.0)
+        return best if best > 0 else 1.0
 
     def _opponent_weights(
         self, opponent_names: list[str], rank: Rank, history: list[AskRecord]
