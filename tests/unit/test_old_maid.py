@@ -261,3 +261,37 @@ def test_no_card_loss_or_duplication_with_3_or_4_players(num_players):
     assert game.game_over
     assert all_cards_accounted_for(game)
     assert game.players[game.loser].hand.cards == [make_odd_card()]
+
+
+def test_discard_pairs_processes_ranks_in_sorted_order_not_set_order(monkeypatch):
+    # Auditor #2 finding: _discard_pairs used to iterate
+    # list(hand.ranks_present()) directly. Hand.ranks_present() returns a
+    # set[Rank], and Rank is a plain, identity-hashed Enum, so its set
+    # iteration order is stable within one process but can differ between
+    # process runs -- and this actually leaked into real gameplay: which
+    # rank got processed first determined the order leftover odd cards got
+    # re-appended to the hand's card list, and draw() does a *positional*
+    # blind draw, so a reordered hand changed which physical card a given
+    # random index landed on for the exact same seed (confirmed via two
+    # fresh-process gauntlet runs producing different reports before this
+    # fix, byte-identical after). Force an adversarial, non-value-sorted
+    # iteration order here to prove it no longer matters.
+    game = make_game()
+    player = game.players[game.order[0]]
+    player.hand.cards = [
+        Card(suit=Suit.HEARTS, rank=Rank.KING), Card(suit=Suit.CLUBS, rank=Rank.KING),
+        Card(suit=Suit.HEARTS, rank=Rank.ACE), Card(suit=Suit.CLUBS, rank=Rank.ACE),
+        Card(suit=Suit.HEARTS, rank=Rank.SEVEN), Card(suit=Suit.CLUBS, rank=Rank.SEVEN),
+    ]
+
+    class AdversarialOrderSet(set):
+        def __iter__(self):
+            return iter([Rank.KING, Rank.ACE, Rank.SEVEN])
+
+    monkeypatch.setattr(
+        player.hand, "ranks_present",
+        lambda: AdversarialOrderSet({Rank.KING, Rank.ACE, Rank.SEVEN}),
+    )
+
+    cleared = game._discard_pairs(player.name)
+    assert cleared == [Rank.ACE, Rank.SEVEN, Rank.KING]

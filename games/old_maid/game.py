@@ -133,7 +133,18 @@ class OldMaidGame:
         """
         player = self.players[name]
         cleared: list[Rank] = []
-        for rank in list(player.hand.ranks_present()):
+        # Sorted, not just list(a_set): Hand.ranks_present() returns a
+        # set[Rank], and Rank is a plain Enum (identity-hashed), so its set
+        # iteration order is stable within one process but can differ
+        # between process runs. Here that leaked into real gameplay: which
+        # rank got processed first determined the order leftover odd cards
+        # got re-appended to the hand's card list, and draw() does a
+        # *positional* blind draw (randrange(len(hand))) -- so a reordered
+        # hand changed which physical card a given random index landed on,
+        # breaking the same-seed reproducibility every gauntlet test
+        # depends on (see the identical fix in core/ai/go_fish_ai.py's
+        # decide_ask for the first instance of this bug class).
+        for rank in sorted(player.hand.ranks_present(), key=lambda r: r.value):
             count = player.hand.count_of_rank(rank)
             pairs = count // 2
             if pairs == 0:

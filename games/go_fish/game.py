@@ -205,7 +205,17 @@ class GoFishGame:
         """
         player = self.players[name]
         claimed: list[Rank] = []
-        for rank in list(player.hand.ranks_present()):
+        # Sorted, not just list(a_set): Hand.ranks_present() returns a
+        # set[Rank], and Rank is a plain Enum (identity-hashed) whose set
+        # iteration order is stable within one process but can differ
+        # between process runs. Doesn't currently change any outcome here
+        # (every qualifying rank gets claimed regardless of order, and Go
+        # Fish's stock draw is positional-on-the-shared-stock, not on a
+        # hand reordered by this loop) -- sorted anyway for defense-in-
+        # depth, since Old Maid's near-identical _discard_pairs loop had
+        # the exact same pattern and it *did* leak into real gameplay
+        # there (a positional blind draw off a hand this loop reorders).
+        for rank in sorted(player.hand.ranks_present(), key=lambda r: r.value):
             count = player.hand.count_of_rank(rank)
             pairs = count // 2
             if pairs == 0:

@@ -453,3 +453,33 @@ def test_decide_ai_ask_then_ask_matches_take_ai_turn_for_an_identical_game():
         result_split.asker, result_split.target, result_split.rank,
     )
     assert result_direct.cards_transferred == result_split.cards_transferred
+
+
+def test_claim_books_processes_ranks_in_sorted_order_not_set_order(monkeypatch):
+    # Defense-in-depth companion to the identical fix in Old Maid's
+    # _discard_pairs (which the same set-order-dependent pattern actually
+    # broke, via a positional blind draw a reordered hand throws off). Go
+    # Fish's own draw is positional-on-the-shared-stock rather than on a
+    # hand this loop reorders, so this hasn't manifested a real bug here --
+    # but it's the exact code smell the project now knows is dangerous, so
+    # sorted anyway rather than trusting set iteration order.
+    game = make_game()
+    p1 = game.order[0]
+    player = game.players[p1]
+    player.hand.cards = [
+        Card(suit=Suit.HEARTS, rank=Rank.KING), Card(suit=Suit.CLUBS, rank=Rank.KING),
+        Card(suit=Suit.HEARTS, rank=Rank.ACE), Card(suit=Suit.CLUBS, rank=Rank.ACE),
+        Card(suit=Suit.HEARTS, rank=Rank.SEVEN), Card(suit=Suit.CLUBS, rank=Rank.SEVEN),
+    ]
+
+    class AdversarialOrderSet(set):
+        def __iter__(self):
+            return iter([Rank.KING, Rank.ACE, Rank.SEVEN])
+
+    monkeypatch.setattr(
+        player.hand, "ranks_present",
+        lambda: AdversarialOrderSet({Rank.KING, Rank.ACE, Rank.SEVEN}),
+    )
+
+    claimed = game._claim_books(p1)
+    assert claimed == [Rank.ACE, Rank.SEVEN, Rank.KING]
