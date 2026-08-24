@@ -288,6 +288,35 @@ def test_hit_that_empties_hand_with_empty_stock_ends_the_turn():
     assert not result.went_again
 
 
+def test_turn_failed_ranks_accumulate_within_a_turn_and_reset_when_it_ends():
+    game = make_game()
+    p1, p2 = game.order
+    game.players[p1].hand.cards = [
+        Card(suit=Suit.HEARTS, rank=Rank.TWO),
+        Card(suit=Suit.CLUBS, rank=Rank.THREE),
+    ]
+    game.players[p2].hand.cards = [Card(suit=Suit.SPADES, rank=Rank.FIVE)]
+    # pop() takes from the end: TWO is drawn first (matches the first ask,
+    # so the turn continues), SEVEN is drawn second (doesn't match the
+    # second ask, so the turn ends).
+    game.stock = [Card(suit=Suit.DIAMONDS, rank=Rank.SEVEN), Card(suit=Suit.CLUBS, rank=Rank.TWO)]
+    game.turn_index = game.order.index(p1)
+
+    first = game.ask(p1, p2, Rank.TWO)
+    assert first.cards_transferred == 0
+    assert first.asker_drew_matched
+    assert first.went_again
+    assert game._turn_failed_ranks == [Rank.TWO]
+    assert game.current_player_name == p1  # still p1's turn
+
+    second = game.ask(p1, p2, Rank.THREE)
+    assert second.cards_transferred == 0
+    assert not second.asker_drew_matched
+    assert not second.went_again
+    assert game._turn_failed_ranks == []  # reset now that the turn actually ended
+    assert game.current_player_name == p2
+
+
 def test_unseeded_games_produce_different_ai_play_sequences():
     # No explicit seed -> each GoFishGame draws its master RNG from OS
     # entropy, so two unseeded games (even with identical starting hands
