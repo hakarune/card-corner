@@ -8,7 +8,16 @@ import pygame
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from ui import theme
 from ui.screen import Screen
-from ui.widgets import Button, Confetti, draw_card_back, draw_card_face, draw_panel, draw_text
+from ui.widgets import (
+    Button,
+    Confetti,
+    draw_card_back,
+    draw_card_face,
+    draw_game_over_modal,
+    draw_panel,
+    draw_text,
+    modal_button_rects,
+)
 
 from .game import OldMaidGame
 
@@ -72,10 +81,10 @@ class OldMaidScreen(Screen):
             self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
         else:
             self.message = "Good game!"
-        cx = self.size[0] // 2
+        left_rect, right_rect = modal_button_rects(self.size)
         self._end_buttons = [
-            Button((cx - 220, 555, 200, theme.MIN_TOUCH_TARGET), "Play Again", self._restart, color=theme.SUCCESS, font_size=28),
-            Button((cx + 20, 555, 200, theme.MIN_TOUCH_TARGET), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=28),
+            Button(left_rect, "Play Again", self._restart, color=theme.SUCCESS, font_size=28),
+            Button(right_rect, "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=28),
         ]
 
     def _restart(self) -> None:
@@ -121,16 +130,18 @@ class OldMaidScreen(Screen):
         self._ai_hand_rect = self._draw_backs(
             surface, len(ai_player.hand), y=170, highlight=active
         )
-        draw_text(surface, f"Pairs found: {len(ai_player.books) // 1}", (30, 260), size=24, color=theme.TEXT_MUTED)
+        draw_text(surface, f"Pairs found: {len(ai_player.books)}", (30, 282), size=24, color=theme.TEXT_MUTED)
 
-        msg_rect = pygame.Rect(60, 320, self.size[0] - 120, 90)
-        draw_panel(surface, msg_rect, color=theme.PANEL)
-        draw_text(surface, self.message, msg_rect.center, size=26, center=True)
+        if not self.game.game_over:
+            msg_rect = pygame.Rect(60, 320, self.size[0] - 120, 90)
+            draw_panel(surface, msg_rect, color=theme.PANEL)
+            draw_text(surface, self.message, msg_rect.center, size=26, center=True)
 
         draw_text(surface, f"Your hand — pairs found: {len(human_player.books)}", (30, 470), size=26, bold=True)
         self._draw_hand(surface, human_player.hand.cards, y=510)
 
         if self.game.game_over:
+            draw_game_over_modal(surface, self.size, self.message)
             for btn in self._end_buttons:
                 btn.draw(surface)
         if self._confetti is not None:

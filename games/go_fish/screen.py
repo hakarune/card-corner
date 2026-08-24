@@ -7,7 +7,16 @@ from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from core.card import Rank
 from ui import theme
 from ui.screen import Screen
-from ui.widgets import Button, Confetti, draw_card_back, draw_card_face, draw_panel, draw_text
+from ui.widgets import (
+    Button,
+    Confetti,
+    draw_card_back,
+    draw_card_face,
+    draw_game_over_modal,
+    draw_panel,
+    draw_text,
+    modal_button_rects,
+)
 
 from .game import GoFishGame
 
@@ -76,10 +85,10 @@ class GoFishScreen(Screen):
             self.message = f"{AI_NAME} collected the most books this time. Play again?"
         else:
             self.message = "It's a tie! Nicely played."
-        cx = self.size[0] // 2
+        left_rect, right_rect = modal_button_rects(self.size)
         self._end_buttons = [
-            Button((cx - 220, 555, 200, theme.MIN_TOUCH_TARGET), "Play Again", self._restart, color=theme.SUCCESS, font_size=28),
-            Button((cx + 20, 555, 200, theme.MIN_TOUCH_TARGET), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=28),
+            Button(left_rect, "Play Again", self._restart, color=theme.SUCCESS, font_size=28),
+            Button(right_rect, "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=28),
         ]
 
     def _restart(self) -> None:
@@ -129,19 +138,21 @@ class GoFishScreen(Screen):
         # AI area
         draw_text(surface, f"{AI_NAME}'s hand: {len(ai_player.hand)} cards", (30, 130), size=26, bold=True)
         self._draw_backs(surface, len(ai_player.hand), y=170)
-        draw_text(surface, f"Books: {len(ai_player.books)}", (30, 260), size=24, color=theme.TEXT_MUTED)
+        draw_text(surface, f"Books: {len(ai_player.books)}", (30, 282), size=24, color=theme.TEXT_MUTED)
 
         # Middle: pond + message
         draw_text(surface, f"Pond: {len(self.game.stock)} cards left", (self.size[0] // 2, 320), size=24, color=theme.TEXT_MUTED, center=True)
-        msg_rect = pygame.Rect(60, 350, self.size[0] - 120, 90)
-        draw_panel(surface, msg_rect, color=theme.PANEL)
-        draw_text(surface, self.message, msg_rect.center, size=26, center=True)
+        if not self.game.game_over:
+            msg_rect = pygame.Rect(60, 350, self.size[0] - 120, 90)
+            draw_panel(surface, msg_rect, color=theme.PANEL)
+            draw_text(surface, self.message, msg_rect.center, size=26, center=True)
 
         # Human area
         draw_text(surface, f"Your hand — click a card to ask for it! Books: {len(human_player.books)}", (30, 470), size=26, bold=True)
         self._card_rects = self._draw_hand(surface, human_player.hand.cards, y=510)
 
         if self.game.game_over:
+            draw_game_over_modal(surface, self.size, self.message)
             for btn in self._end_buttons:
                 btn.draw(surface)
         if self._confetti is not None:

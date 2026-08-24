@@ -21,8 +21,10 @@ from ui.widgets import (
     draw_card_face,
     draw_face_down_tile,
     draw_flip,
+    draw_game_over_modal,
     draw_panel,
     draw_text,
+    modal_button_rects,
 )
 
 from .game import MemoryGame
@@ -134,10 +136,10 @@ class MemoryScreen(Screen):
             self.message = f"{AI_NAME} wins, {ai_score} to {human_score}. Play again?"
         else:
             self.message = f"It's a tie, {human_score} to {ai_score}!"
-        cx = self.size[0] // 2
+        left_rect, right_rect = modal_button_rects(self.size)
         self._end_buttons = [
-            Button((cx - 220, 622, 200, theme.MIN_TOUCH_TARGET), "Play Again", self._restart, color=theme.SUCCESS, font_size=26),
-            Button((cx + 20, 622, 200, theme.MIN_TOUCH_TARGET), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=26),
+            Button(left_rect, "Play Again", self._restart, color=theme.SUCCESS, font_size=26),
+            Button(right_rect, "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=26),
         ]
 
     def _restart(self) -> None:
@@ -204,6 +206,7 @@ class MemoryScreen(Screen):
         self._tile_rects = self._draw_board(surface, y_start=200)
 
         if self.game.game_over:
+            draw_game_over_modal(surface, self.size, self.message)
             for btn in self._end_buttons:
                 btn.draw(surface)
         if self._confetti is not None:

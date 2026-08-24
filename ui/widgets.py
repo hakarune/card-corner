@@ -121,6 +121,44 @@ def draw_panel(surface: pygame.Surface, rect: pygame.Rect, color=theme.PANEL) ->
     pygame.draw.rect(surface, theme.TEXT_DARK, rect, width=3, border_radius=20)
 
 
+MODAL_SIZE = (680, 280)
+
+
+def modal_rect(window_size: tuple[int, int]) -> pygame.Rect:
+    rect = pygame.Rect(0, 0, *MODAL_SIZE)
+    rect.center = (window_size[0] // 2, window_size[1] // 2)
+    return rect
+
+
+def modal_button_rects(window_size: tuple[int, int]) -> tuple[pygame.Rect, pygame.Rect]:
+    """Standard positions for the two end-of-game buttons, sized to
+    MIN_TOUCH_TARGET and placed inside the modal panel — not floating over
+    whatever board/hand state happens to still be rendered underneath.
+    """
+    m = modal_rect(window_size)
+    y = m.top + 170
+    left = pygame.Rect(m.centerx - 220, y, 200, theme.MIN_TOUCH_TARGET)
+    right = pygame.Rect(m.centerx + 20, y, 200, theme.MIN_TOUCH_TARGET)
+    return left, right
+
+
+def draw_dim_overlay(surface: pygame.Surface, alpha: int = 190) -> None:
+    overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    overlay.fill((*theme.BACKGROUND, alpha))
+    surface.blit(overlay, (0, 0))
+
+
+def draw_game_over_modal(surface: pygame.Surface, window_size: tuple[int, int], message: str) -> None:
+    """Dims whatever's still on screen and draws the end-of-game message
+    inside a centered panel, so the Play Again/Menu buttons (positioned via
+    `modal_button_rects`) never overlap board/hand content underneath.
+    """
+    draw_dim_overlay(surface)
+    m = modal_rect(window_size)
+    draw_panel(surface, m)
+    draw_text(surface, message, (m.centerx, m.top + 70), size=28, center=True)
+
+
 def draw_text(
     surface: pygame.Surface,
     text: str,
