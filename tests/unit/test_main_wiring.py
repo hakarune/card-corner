@@ -7,7 +7,7 @@ from __future__ import annotations
 import pygame
 import pytest
 
-from core.ai.base import Difficulty
+from core.ai.base import Difficulty, DIFFICULTY_LABELS
 from games.go_fish.screen import GoFishScreen
 from games.letter_match.screen import LetterMatchScreen
 from games.memory.screen import MemoryScreen
@@ -44,11 +44,37 @@ def test_adversarial_game_tiles_go_to_difficulty_select_then_the_right_screen(la
     diff_screen = launcher.next_screen()
     assert isinstance(diff_screen, DifficultySelectScreen)
 
-    hard_btn = diff_screen.buttons[2]  # EASY, MEDIUM, HARD, Back
+    # Look up by label rather than a fixed index: Memory's setup screen has
+    # an extra leading "Play Alone" button ahead of the three difficulties.
+    hard_btn = next(b for b in diff_screen.buttons if b.label == DIFFICULTY_LABELS[Difficulty.HARD])
     click(diff_screen, hard_btn.rect.center)
     game_screen = diff_screen.next_screen()
     assert isinstance(game_screen, screen_cls)
     assert game_screen.difficulty is Difficulty.HARD
+
+
+def test_memory_setup_has_a_play_alone_option_that_skips_ai():
+    launcher = make_launcher(WINDOW_SIZE)
+    btn = next(b for b, lbl, _ in launcher._icons if lbl == "Memory")
+    click(launcher, btn.rect.center)
+    diff_screen = launcher.next_screen()
+    assert isinstance(diff_screen, DifficultySelectScreen)
+
+    solo_btn = next(b for b in diff_screen.buttons if b.label == "Play Alone")
+    click(diff_screen, solo_btn.rect.center)
+    game_screen = diff_screen.next_screen()
+    assert isinstance(game_screen, MemoryScreen)
+    assert game_screen.solo is True
+    assert game_screen.difficulty is None
+
+
+def test_other_games_setup_screens_have_no_play_alone_option():
+    for label in ("Go Fish", "Old Maid"):
+        launcher = make_launcher(WINDOW_SIZE)
+        btn = next(b for b, lbl, _ in launcher._icons if lbl == label)
+        click(launcher, btn.rect.center)
+        diff_screen = launcher.next_screen()
+        assert all(b.label != "Play Alone" for b in diff_screen.buttons)
 
 
 def test_difficulty_select_back_button_returns_to_a_fresh_launcher():

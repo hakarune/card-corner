@@ -21,9 +21,9 @@ from ui.widgets import (
     Button,
     Confetti,
     draw_card_back,
-    draw_card_face,
     draw_flip,
     draw_game_over_modal,
+    draw_item_card_face,
     draw_panel,
     draw_text,
     modal_button_rects,
@@ -42,14 +42,25 @@ FLIP_DURATION = 0.28
 
 
 class MemoryScreen(Screen):
-    def __init__(self, size: tuple[int, int], difficulty: Difficulty, on_menu):
+    def __init__(self, size: tuple[int, int], difficulty: Difficulty | None, on_menu):
+        """`difficulty=None` selects solo "Play Alone" mode (spec §7): no AI
+        opponent at all, just flipping pairs at your own pace, with a
+        completion time/move count shown at the end instead of a win/lose
+        framing against an opponent.
+        """
         super().__init__(size)
         self.on_menu = on_menu
         self.difficulty = difficulty
-        self.game = MemoryGame(
-            [HUMAN_NAME, AI_NAME], num_pairs=NUM_PAIRS, ai_difficulties={AI_NAME: difficulty}, seed=None
-        )
+        self.solo = difficulty is None
+        if self.solo:
+            self.game = MemoryGame([HUMAN_NAME], num_pairs=NUM_PAIRS, seed=None)
+        else:
+            self.game = MemoryGame(
+                [HUMAN_NAME, AI_NAME], num_pairs=NUM_PAIRS, ai_difficulties={AI_NAME: difficulty}, seed=None
+            )
         self.message = "Flip two cards to find a match!"
+        self._elapsed = 0.0
+        self._moves = 0
         self._visible: set[int] = set()
         self._human_first: Optional[int] = None
         self._locked = False
@@ -128,6 +139,8 @@ class MemoryScreen(Screen):
         self._visible.add(second)
         audio.play_sfx("card_select")
         result = self.game.flip_two(HUMAN_NAME, first, second)
+        if self.solo:
+            self._moves += 1
 
         if result.matched:
             self.message = "Match! Go again."
@@ -146,6 +159,17 @@ class MemoryScreen(Screen):
             self._schedule(RESOLVE_PAUSE, hide)
 
     def _on_game_over(self) -> None:
+        if self.solo:
+            minutes, seconds = divmod(int(self._elapsed), 60)
+            self.message = f"All pairs found! Time {minutes}:{seconds:02d} — Moves: {self._moves}"
+            self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
+            audio.play_sfx("win")
+            left_rect, right_rect = modal_button_rects(self.size)
+            self._end_buttons = [
+                Button(left_rect, "Play Again", self._restart, color=theme.SUCCESS, font_size=26),
+                Button(right_rect, "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=26),
+            ]
+            return
         human_score = self.game.players[HUMAN_NAME].score
         ai_score = self.game.players[AI_NAME].score
         if human_score > ai_score:
@@ -183,6 +207,8 @@ class MemoryScreen(Screen):
     def update(self, dt: float) -> None:
         if self._pause.visible:
             return
+        if self.solo and not self.game.game_over:
+            self._elapsed += dt
         if self._pending_callback is not None:
             self._timer -= dt
             if self._timer <= 0:
@@ -209,20 +235,37 @@ class MemoryScreen(Screen):
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(theme.BACKGROUND)
         draw_text(surface, "Memory", (30, 24), size=40, bold=True)
-        draw_text(
-            surface,
-            f"Playing against {AI_NAME} ({DIFFICULTY_LABELS[self.difficulty]})",
-            (30, 74),
-            size=22,
-            color=theme.TEXT_MUTED,
-        )
-        draw_text(
-            surface,
-            f"You: {self.game.players[HUMAN_NAME].score}    {AI_NAME}: {self.game.players[AI_NAME].score}",
-            (self.size[0] - 340, 40),  # clear of the pause icon (top-right, ~74px wide)
-            size=30,
-            bold=True,
-        )
+        if self.solo:
+            draw_text(
+                surface, "Playing alone — find all the pairs!", (30, 74), size=22, color=theme.TEXT_MUTED
+            )
+            minutes, seconds = divmod(int(self._elapsed), 60)
+            draw_text(
+                surface,
+                f"Time {minutes}:{seconds:02d}    Moves {self._moves}",
+                # Wider than the vs-AI score line even in the worst realistic
+                # case (measured 286px at size 24 for "Time 59:59    Moves
+                # 99"), so it needs a bigger clearance to stay clear of the
+                # pause icon (top-right, ~74px wide) than that line does.
+                (self.size[0] - 400, 42),
+                size=24,
+                bold=True,
+            )
+        else:
+            draw_text(
+                surface,
+                f"Playing against {AI_NAME} ({DIFFICULTY_LABELS[self.difficulty]})",
+                (30, 74),
+                size=22,
+                color=theme.TEXT_MUTED,
+            )
+            draw_text(
+                surface,
+                f"You: {self.game.players[HUMAN_NAME].score}    {AI_NAME}: {self.game.players[AI_NAME].score}",
+                (self.size[0] - 340, 40),  # clear of the pause icon (top-right, ~74px wide)
+                size=30,
+                bold=True,
+            )
 
         msg_rect = pygame.Rect(60, 110, self.size[0] - 120, 70)
         draw_panel(surface, msg_rect)
@@ -261,7 +304,7 @@ class MemoryScreen(Screen):
                 draw_card_back(surf, r, card_theme)
 
             def render_face(surf, r, card=card) -> None:
-                draw_card_face(surf, r, card.label, card.symbol, card.is_red, card_theme)
+                draw_item_card_face(surf, r, card.rank, card_theme)
 
             if pos in self._flip_anim:
                 progress = self._flip_anim[pos] / FLIP_DURATION

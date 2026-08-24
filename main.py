@@ -43,8 +43,13 @@ def make_launcher(size: tuple[int, int]) -> Screen:
         def on_pick(difficulty):
             return screen_cls(size, difficulty, lambda: make_launcher(size))
 
+        solo_pick = None
+        if key == "memory":
+            def solo_pick():
+                return screen_cls(size, None, lambda: make_launcher(size))
+
         return DifficultySelectScreen(
-            size, label, color, on_pick, lambda: make_launcher(size)
+            size, label, color, on_pick, lambda: make_launcher(size), solo_pick=solo_pick
         )
 
     return LauncherScreen(size, on_select)

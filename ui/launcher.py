@@ -216,7 +216,10 @@ class LauncherScreen(Screen):
 
 
 class DifficultySelectScreen(Screen):
-    """Shared difficulty picker used by Go Fish, Old Maid, and Memory."""
+    """Shared difficulty picker used by Go Fish, Old Maid, and Memory. Memory
+    additionally passes `solo_pick` (spec §7): an extra "Play Alone" option,
+    alongside the three difficulties, that starts a no-AI solo game instead.
+    """
 
     def __init__(
         self,
@@ -225,23 +228,31 @@ class DifficultySelectScreen(Screen):
         game_color,
         on_pick: Callable[[Difficulty], "Screen"],
         on_back: Callable[[], "Screen"],
+        solo_pick: Callable[[], "Screen"] | None = None,
     ):
         super().__init__(size)
         self.game_label = game_label
         self.buttons: list[Button] = []
 
+        options: list[tuple[str, Callable[[], "Screen"], object]] = []
+        if solo_pick is not None:
+            options.append(("Play Alone", solo_pick, theme.TEXT_MUTED))
+        for difficulty in [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD]:
+            options.append((DIFFICULTY_LABELS[difficulty], lambda d=difficulty: on_pick(d), game_color))
+
         cx = size[0] // 2
-        btn_w, btn_h, gap = 420, 100, 30
-        start_y = 260
-        for i, difficulty in enumerate([Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD]):
+        btn_w = 420
+        # A 4th option (solo) needs a tighter layout to still fit above the
+        # back button at this fixed logical window height.
+        btn_h, gap, font_size = (100, 30, 36) if len(options) <= 3 else (82, 22, 32)
+        start_y = 260 if len(options) <= 3 else 190
+        for i, (label, callback, color) in enumerate(options):
             rect = (cx - btn_w // 2, start_y + i * (btn_h + gap), btn_w, btn_h)
 
-            def make_click(d=difficulty):
-                return lambda: self.go_to(on_pick(d))
+            def make_click(cb=callback):
+                return lambda: self.go_to(cb())
 
-            self.buttons.append(
-                Button(rect, DIFFICULTY_LABELS[difficulty], make_click(), color=game_color, font_size=36)
-            )
+            self.buttons.append(Button(rect, label, make_click(), color=color, font_size=font_size))
 
         back_rect = (40, size[1] - 100, 200, theme.MIN_TOUCH_TARGET)
         self.buttons.append(
