@@ -136,10 +136,32 @@ def test_fullscreen_toggle_button_flips_setting_and_stays_open():
     settings.set("fullscreen", True)
     menu, _ = make_menu()
     menu.open()
-    btn = next(b for b in menu._buttons if b.label.startswith("Fullscreen"))
-    assert btn.label == "Fullscreen: On"
+    btn = next(b for b in menu._buttons if b.label.startswith("Full:"))
+    assert btn.label == "Full: On"
     click(menu, btn.rect.center)
     assert settings.get("fullscreen") is False
     assert menu.visible  # keep_open=True for this one
-    refreshed = next(b for b in menu._buttons if b.label.startswith("Fullscreen"))
-    assert refreshed.label == "Fullscreen: Off"
+    refreshed = next(b for b in menu._buttons if b.label.startswith("Full:"))
+    assert refreshed.label == "Full: Off"
+
+
+def test_mute_toggle_button_flips_setting_and_stays_open():
+    settings.set("muted", False)
+    menu, _ = make_menu()
+    menu.open()
+    btn = next(b for b in menu._buttons if b.label.startswith("Mute:"))
+    assert btn.label == "Mute: Off"
+    click(menu, btn.rect.center)
+    assert settings.get("muted") is True
+    assert menu.visible  # keep_open=True for this one
+    refreshed = next(b for b in menu._buttons if b.label.startswith("Mute:"))
+    assert refreshed.label == "Mute: On"
+
+
+def test_all_buttons_fit_within_the_visible_panel():
+    # Auditor #2 finding: the panel used to be ~100px too short for its own
+    # 5 rows, so Quit App rendered outside the panel background.
+    menu, _ = make_menu()
+    menu.open()
+    for btn in menu._buttons:
+        assert menu._panel.contains(btn.rect), f"{btn.label!r} renders outside the pause panel"
