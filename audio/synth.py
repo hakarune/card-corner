@@ -57,6 +57,14 @@ def _envelope(i: int, n: int, attack: int, release: int) -> float:
     return 1.0
 
 
+def _clamp_sample(value: float) -> int:
+    """Clamps to the valid int16 range regardless of `volume` -- a future
+    caller passing e.g. volume=1.2 for emphasis must degrade to a clipped-
+    but-valid sample, never an uncaught OverflowError from array.array.
+    """
+    return max(-32768, min(32767, int(value)))
+
+
 def _wave(shape: str, phase: float) -> float:
     theta = phase % 1.0
     if shape == WAVE_SQUARE:
@@ -76,7 +84,7 @@ def tone(freq: float, duration: float, shape: str = WAVE_SINE, volume: float = 1
         for i in range(n):
             phase = freq * i / SAMPLE_RATE
             env = _envelope(i, n, attack, release)
-            samples[i] = int(AMPLITUDE * volume * env * _wave(shape, phase))
+            samples[i] = _clamp_sample(AMPLITUDE * volume * env * _wave(shape, phase))
     return pygame.mixer.Sound(buffer=samples.tobytes())
 
 
@@ -94,7 +102,7 @@ def sweep(start_freq: float, end_freq: float, duration: float, shape: str = WAVE
         freq = start_freq + (end_freq - start_freq) * t
         phase += freq / SAMPLE_RATE
         env = _envelope(i, n, attack, release)
-        samples[i] = int(AMPLITUDE * volume * env * _wave(shape, phase))
+        samples[i] = _clamp_sample(AMPLITUDE * volume * env * _wave(shape, phase))
     return pygame.mixer.Sound(buffer=samples.tobytes())
 
 
@@ -125,6 +133,6 @@ def sequence(
             for i in range(n):
                 phase = freq * i / SAMPLE_RATE
                 env = _envelope(i, n, attack, release)
-                samples[idx + i] = int(AMPLITUDE * volume * env * _wave(shape, phase))
+                samples[idx + i] = _clamp_sample(AMPLITUDE * volume * env * _wave(shape, phase))
         idx += n + gap_n
     return pygame.mixer.Sound(buffer=samples.tobytes())

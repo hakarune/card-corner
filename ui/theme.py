@@ -6,6 +6,8 @@ aren't fluent readers yet.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pygame
 
 WINDOW_SIZE = (1024, 720)
@@ -37,6 +39,51 @@ GAME_COLORS = {
 }
 
 MIN_TOUCH_TARGET = 88  # px
+
+
+def _tint(color: tuple[int, int, int], amount: float = 0.82) -> tuple[int, int, int]:
+    """A pale, pastel version of `color` -- used for card fronts so 'no
+    plain white front' still reads as calm and legible, not a saturated
+    background fighting the label/symbol printed on top of it.
+    """
+    return tuple(int(c + (255 - c) * amount) for c in color)
+
+
+@dataclass(frozen=True)
+class CardTheme:
+    """A game's complete card visual identity: the label lettered across
+    its back, the back's base color and small repeating pattern, and a
+    matching (non-white) tint for its fronts. Passed into
+    ui.widgets.draw_card_back/draw_card_face so card rendering is
+    data-driven per game rather than hardcoded (spec §4).
+    """
+
+    label: str
+    back_color: tuple[int, int, int]
+    pattern: str  # one of PATTERN_DRAWERS' keys in ui.widgets
+    front_tint: tuple[int, int, int]
+
+
+CARD_THEMES: dict[str, CardTheme] = {
+    "go_fish": CardTheme(
+        label="GO FISH!",
+        back_color=GAME_COLORS["go_fish"],
+        pattern="fish",
+        front_tint=_tint(GAME_COLORS["go_fish"]),
+    ),
+    "old_maid": CardTheme(
+        label="OLD MAID",
+        back_color=GAME_COLORS["old_maid"],
+        pattern="crown",
+        front_tint=_tint(GAME_COLORS["old_maid"]),
+    ),
+    "memory": CardTheme(
+        label="MEMORY",
+        back_color=GAME_COLORS["memory"],
+        pattern="puzzle",
+        front_tint=_tint(GAME_COLORS["memory"]),
+    ),
+}
 
 _FONT_CACHE: dict[tuple[int, bool], "pygame.font.Font"] = {}
 

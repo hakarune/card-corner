@@ -165,3 +165,52 @@ def test_main_loop_switches_window_when_fullscreen_setting_changes(monkeypatch, 
     # second is the mid-loop switch to windowed after the setting flipped.
     assert create_window_calls[0][0] is True
     assert any(call[0] is False for call in create_window_calls[1:])
+
+
+def test_main_loop_refreshes_music_volume_every_frame(monkeypatch, tmp_path):
+    """A mute/volume change from the pause menu or main menu must take
+    effect promptly, not just the next time music happens to (re)start --
+    confirms main()'s loop actually calls audio.refresh_music_volume() on
+    every iteration, not just that the method works in isolation.
+    """
+    from ui import settings
+
+    monkeypatch.setattr(settings, "SETTINGS_PATH", tmp_path / "settings.json")
+    settings._settings = dict(settings.DEFAULTS)
+
+    monkeypatch.setattr(main_module.pygame, "quit", lambda: None)
+
+    refresh_calls = []
+    monkeypatch.setattr(main_module.audio, "refresh_music_volume", lambda: refresh_calls.append(1))
+    monkeypatch.setattr(main_module.audio, "start_music", lambda: None)
+    monkeypatch.setattr(main_module.audio, "stop_music", lambda: None)
+
+    class ScriptedScreen:
+        def __init__(self, size):
+            self.size = size
+            self.quit_requested = False
+            self._next = None
+            self._updates = 0
+
+        def handle_event(self, event):
+            pass
+
+        def update(self, dt):
+            self._updates += 1
+            if self._updates >= 3:
+                self.quit_requested = True
+
+        def draw(self, surface):
+            surface.fill((0, 0, 0))
+
+        def next_screen(self):
+            return None
+
+    monkeypatch.setattr(main_module, "make_launcher", lambda size: ScriptedScreen(size))
+    monkeypatch.setattr(main_module.pygame.event, "get", lambda: [])
+    monkeypatch.setattr(main_module.pygame.time, "Clock", lambda: type("C", (), {"tick": lambda self, fps: 16})())
+
+    with pytest.raises(SystemExit):
+        main_module.main()
+
+    assert len(refresh_calls) >= 3

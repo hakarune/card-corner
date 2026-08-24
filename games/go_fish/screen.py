@@ -188,9 +188,10 @@ class GoFishScreen(Screen):
     def _draw_backs(self, surface: pygame.Surface, count: int, y: int) -> None:
         card_w, card_h = 70, 100
         x = 30
+        card_theme = theme.CARD_THEMES["go_fish"]
         for i in range(count):
             rect = pygame.Rect(x, y, card_w, card_h)
-            draw_card_back(surface, rect)
+            draw_card_back(surface, rect, card_theme)
             x += 26
 
     def _draw_hand(self, surface: pygame.Surface, cards, y: int) -> list[tuple[pygame.Rect, Rank]]:
@@ -216,7 +217,7 @@ class GoFishScreen(Screen):
             row, col = divmod(i, cards_per_row)
             rect = pygame.Rect(margin + col * gap, y + row * (card_h + row_gap), card_w, card_h)
             draw_rect = self._dealt_position(rect, i)
-            draw_card_face(surface, draw_rect, card.label, card.symbol, card.is_red)
+            draw_card_face(surface, draw_rect, card.label, card.symbol, card.is_red, theme.CARD_THEMES["go_fish"])
             rects.append((rect, card.rank))  # click hit-testing always uses the final rect
         return rects
 

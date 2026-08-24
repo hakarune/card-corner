@@ -56,20 +56,140 @@ class Button:
         surface.blit(text_surf, text_surf.get_rect(center=self.rect.center))
 
 
-def draw_card_back(surface: pygame.Surface, rect: pygame.Rect) -> None:
-    pygame.draw.rect(surface, theme.CARD_BACK, rect, border_radius=12)
+def _pattern_fish(surface: pygame.Surface, cx: float, cy: float, s: float, color) -> None:
+    pygame.draw.polygon(
+        surface, color, [(cx - s, cy), (cx - s * 0.15, cy - s * 0.55), (cx - s * 0.15, cy + s * 0.55)]
+    )
+    pygame.draw.circle(surface, color, (cx + s * 0.35, cy), s * 0.45)
+
+
+def _pattern_crown(surface: pygame.Surface, cx: float, cy: float, s: float, color) -> None:
+    points = [
+        (cx - s, cy + s * 0.5), (cx - s, cy - s * 0.1), (cx - s * 0.5, cy + s * 0.15),
+        (cx, cy - s * 0.55), (cx + s * 0.5, cy + s * 0.15), (cx + s, cy - s * 0.1),
+        (cx + s, cy + s * 0.5),
+    ]
+    pygame.draw.polygon(surface, color, points)
+
+
+def _pattern_puzzle(surface: pygame.Surface, cx: float, cy: float, s: float, color) -> None:
+    pygame.draw.circle(surface, color, (cx, cy), s * 0.5, width=max(2, int(s * 0.15)))
+    pygame.draw.circle(surface, color, (cx, cy), s * 0.2)
+
+
+PATTERN_DRAWERS: dict[str, Callable] = {
+    "fish": _pattern_fish,
+    "crown": _pattern_crown,
+    "puzzle": _pattern_puzzle,
+}
+
+
+def _fit_text(text: str, max_width: int, size: int, color) -> pygame.Surface:
+    """Renders `text` at `size`, shrinking (via scale, not re-rendering) if
+    it would overflow `max_width` -- keeps a themed back's game-name label
+    legible even on the narrowest card sizes a screen uses.
+    """
+    font = theme.get_font(size, bold=True)
+    surf = font.render(text, True, color)
+    if surf.get_width() > max_width:
+        scale = max_width / surf.get_width()
+        new_size = (max_width, max(1, int(surf.get_height() * scale)))
+        surf = pygame.transform.smoothscale(surf, new_size)
+    return surf
+
+
+def draw_card_back(surface: pygame.Surface, rect: pygame.Rect, card_theme=None) -> None:
+    """A themed card back: solid game color, a small repeating pattern in
+    each corner, and the game's name lettered across the middle -- so a
+    face-down card instantly tells you which game you're playing (spec §4).
+    Falls back to the original generic circle-in-circle back if no theme is
+    given (kept for callers/tests that don't care which game it's for).
+    """
+    pygame.draw.rect(surface, card_theme.back_color if card_theme else theme.CARD_BACK, rect, border_radius=12)
     pygame.draw.rect(surface, theme.CARD_BORDER, rect, width=3, border_radius=12)
-    center = rect.center
-    r = min(rect.width, rect.height) // 5
-    pygame.draw.circle(surface, theme.CARD_BACK_PATTERN, center, r, width=4)
-    pygame.draw.circle(surface, theme.CARD_BACK_PATTERN, center, max(r - 14, 4))
+
+    if card_theme is None:
+        center = rect.center
+        r = min(rect.width, rect.height) // 5
+        pygame.draw.circle(surface, theme.CARD_BACK_PATTERN, center, r, width=4)
+        pygame.draw.circle(surface, theme.CARD_BACK_PATTERN, center, max(r - 14, 4))
+        return
+
+    pattern_color = theme.TEXT_LIGHT
+    # On very narrow cards (e.g. a compact opponent-hand back) there isn't
+    # room for both the corner pattern and a legible name label without
+    # them colliding -- drop the pattern and let the color + label carry
+    # the game identity instead.
+    if rect.width >= 85:
+        pattern_fn = PATTERN_DRAWERS[card_theme.pattern]
+        s = min(rect.width, rect.height) * 0.11
+        margin_x, margin_y = rect.width * 0.2, rect.height * 0.16
+        for corner_x in (rect.left + margin_x, rect.right - margin_x):
+            for corner_y in (rect.top + margin_y, rect.bottom - margin_y):
+                pattern_fn(surface, corner_x, corner_y, s, pattern_color)
+
+    label_surf = _fit_text(card_theme.label, int(rect.width * 0.85), max(int(rect.height * 0.13), 11), pattern_color)
+    surface.blit(label_surf, label_surf.get_rect(center=rect.center))
+
+
+def draw_old_maid_illustration(surface: pygame.Surface, rect: pygame.Rect) -> None:
+    """A distinct, whimsical illustrated face for the one card the whole
+    game revolves around -- a friendly, silly granny character (round
+    glasses, a bonnet, rosy cheeks, a big smile), not a reused card back or
+    a generic face, so it instantly reads as 'the Old Maid' (spec §6).
+    """
+    card_theme = theme.CARD_THEMES["old_maid"]
+    pygame.draw.rect(surface, card_theme.front_tint, rect, border_radius=12)
+    pygame.draw.rect(surface, card_theme.back_color, rect, width=3, border_radius=12)
+
+    cx, cy = rect.centerx, rect.centery + rect.height * 0.06
+    head_r = rect.width * 0.28
+    skin = (247, 214, 180)
+
+    # Bonnet: a triangle-topped headscarf peeking out behind the head.
+    bonnet_pts = [
+        (cx - head_r * 1.3, cy - head_r * 0.2),
+        (cx, cy - head_r * 1.9),
+        (cx + head_r * 1.3, cy - head_r * 0.2),
+    ]
+    pygame.draw.polygon(surface, card_theme.back_color, bonnet_pts)
+
+    pygame.draw.circle(surface, skin, (cx, cy), head_r)
+
+    # Round glasses.
+    eye_dx, eye_y = head_r * 0.42, cy - head_r * 0.05
+    glasses_r = head_r * 0.3
+    for dx in (-eye_dx, eye_dx):
+        pygame.draw.circle(surface, theme.TEXT_DARK, (cx + dx, eye_y), glasses_r, width=3)
+        pygame.draw.circle(surface, theme.TEXT_DARK, (cx + dx, eye_y), glasses_r * 0.35)
+    pygame.draw.line(
+        surface, theme.TEXT_DARK, (cx - eye_dx + glasses_r, eye_y), (cx + eye_dx - glasses_r, eye_y), 2
+    )
+
+    # Rosy cheeks and a big smile.
+    cheek_r = head_r * 0.18
+    for dx in (-head_r * 0.55, head_r * 0.55):
+        pygame.draw.circle(surface, (240, 150, 150), (int(cx + dx), int(cy + head_r * 0.35)), int(cheek_r))
+    smile_rect = pygame.Rect(0, 0, head_r * 0.9, head_r * 0.7)
+    smile_rect.center = (cx, cy + head_r * 0.3)
+    pygame.draw.arc(surface, theme.TEXT_DARK, smile_rect, 3.53, 5.9, 3)
+
+    label_surf = _fit_text("OLD MAID", int(rect.width * 0.9), max(int(rect.height * 0.1), 10), card_theme.back_color)
+    surface.blit(label_surf, label_surf.get_rect(midbottom=(rect.centerx, rect.bottom - 6)))
 
 
 def draw_card_face(
-    surface: pygame.Surface, rect: pygame.Rect, label: str, symbol: str, is_red: bool
+    surface: pygame.Surface, rect: pygame.Rect, label: str, symbol: str, is_red: bool, card_theme=None
 ) -> None:
-    pygame.draw.rect(surface, theme.CARD_FACE, rect, border_radius=12)
-    pygame.draw.rect(surface, theme.CARD_BORDER, rect, width=3, border_radius=12)
+    """A card front. Always carries a themed (non-white) background tint
+    and a border matching its game's color when a theme is given, per
+    spec §4's 'no plain white/blank card fronts' -- falls back to a plain
+    white front for callers/tests that don't pass one.
+    """
+    bg = card_theme.front_tint if card_theme else theme.CARD_FACE
+    border = card_theme.back_color if card_theme else theme.CARD_BORDER
+    pygame.draw.rect(surface, bg, rect, border_radius=12)
+    pygame.draw.rect(surface, border, rect, width=3, border_radius=12)
     color = theme.CARD_RED if is_red else theme.CARD_BLACK
 
     corner_font = theme.get_font(max(int(rect.height * 0.16), 12), bold=True)
@@ -82,18 +202,13 @@ def draw_card_face(
 
 
 def draw_letter_tile(surface: pygame.Surface, rect: pygame.Rect, text: str, color) -> None:
-    pygame.draw.rect(surface, theme.CARD_FACE, rect, border_radius=14)
+    # A tinted (not plain white) background, per spec §4's "no plain
+    # white/blank card fronts anywhere" -- even for tiles that are never
+    # face-down.
+    pygame.draw.rect(surface, theme._tint(color), rect, border_radius=14)
     pygame.draw.rect(surface, color, rect, width=5, border_radius=14)
     font = theme.get_font(max(int(rect.height * 0.55), 18), bold=True)
     text_surf = font.render(text, True, theme.TEXT_DARK)
-    surface.blit(text_surf, text_surf.get_rect(center=rect.center))
-
-
-def draw_face_down_tile(surface: pygame.Surface, rect: pygame.Rect, color) -> None:
-    pygame.draw.rect(surface, color, rect, border_radius=14)
-    pygame.draw.rect(surface, theme.TEXT_DARK, rect, width=3, border_radius=14)
-    font = theme.get_font(max(int(rect.height * 0.5), 18), bold=True)
-    text_surf = font.render("?", True, theme.TEXT_LIGHT)
     surface.blit(text_surf, text_surf.get_rect(center=rect.center))
 
 

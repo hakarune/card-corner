@@ -20,8 +20,8 @@ from ui.screen import Screen
 from ui.widgets import (
     Button,
     Confetti,
+    draw_card_back,
     draw_card_face,
-    draw_face_down_tile,
     draw_flip,
     draw_game_over_modal,
     draw_panel,
@@ -219,7 +219,7 @@ class MemoryScreen(Screen):
         draw_text(
             surface,
             f"You: {self.game.players[HUMAN_NAME].score}    {AI_NAME}: {self.game.players[AI_NAME].score}",
-            (self.size[0] - 260, 40),
+            (self.size[0] - 340, 40),  # clear of the pause icon (top-right, ~74px wide)
             size=30,
             bold=True,
         )
@@ -255,12 +255,13 @@ class MemoryScreen(Screen):
             )
             card = self.game.board[pos]
             face_up = pos in self._visible or pos in self.game.matched
+            card_theme = theme.CARD_THEMES["memory"]
 
             def render_back(surf, r) -> None:
-                draw_face_down_tile(surf, r, theme.GAME_COLORS["memory"])
+                draw_card_back(surf, r, card_theme)
 
             def render_face(surf, r, card=card) -> None:
-                draw_card_face(surf, r, card.label, card.symbol, card.is_red)
+                draw_card_face(surf, r, card.label, card.symbol, card.is_red, card_theme)
 
             if pos in self._flip_anim:
                 progress = self._flip_anim[pos] / FLIP_DURATION

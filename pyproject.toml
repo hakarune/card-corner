@@ -21,4 +21,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["core*", "games*", "ui*"]
+include = ["core*", "games*", "ui*", "audio*"]
+
+[tool.setuptools]
+py-modules = ["main", "version"]

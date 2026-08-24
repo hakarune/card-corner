@@ -16,6 +16,7 @@ from ui.widgets import (
     draw_card_back,
     draw_card_face,
     draw_game_over_modal,
+    draw_old_maid_illustration,
     draw_panel,
     draw_text,
     modal_button_rects,
@@ -74,6 +75,7 @@ class OldMaidScreen(Screen):
             audio.play_sfx("match")
         else:
             self.message = f"{AI_NAME} drew a card — no match yet."
+            audio.play_sfx("miss")
         self._waiting_for_ai = False
         self._maybe_start_ai_turn()
 
@@ -87,6 +89,7 @@ class OldMaidScreen(Screen):
             audio.play_sfx("match")
         else:
             self.message = "No match this time — your turn is over."
+            audio.play_sfx("miss")
         self._maybe_start_ai_turn()
 
     def _on_game_over(self) -> None:
@@ -190,9 +193,10 @@ class OldMaidScreen(Screen):
         available_width = self.size[0] - 2 * margin
         gap = min(50, max(30, (available_width - card_w) // max(count, 1)))
         x = margin
+        card_theme = theme.CARD_THEMES["old_maid"]
         for i in range(count):
             rect = pygame.Rect(x, y, card_w, card_h)
-            draw_card_back(surface, rect)
+            draw_card_back(surface, rect, card_theme)
             if highlight:
                 pygame.draw.rect(surface, theme.ACCENT, rect, width=4, border_radius=12)
             x += gap
@@ -202,9 +206,14 @@ class OldMaidScreen(Screen):
         card_w, card_h = 90, 130
         gap = min(70, max(20, (self.size[0] - 60 - card_w) // max(len(cards), 1)))
         x = 30
+        card_theme = theme.CARD_THEMES["old_maid"]
         for i, card in enumerate(cards):
             rect = pygame.Rect(x, y, card_w, card_h)
-            draw_card_face(surface, self._dealt_position(rect, i), card.label, card.symbol, card.is_red)
+            draw_rect = self._dealt_position(rect, i)
+            if card.is_odd_one:
+                draw_old_maid_illustration(surface, draw_rect)
+            else:
+                draw_card_face(surface, draw_rect, card.label, card.symbol, card.is_red, card_theme)
             x += gap
 
     def _dealt_position(self, final_rect: pygame.Rect, index: int) -> pygame.Rect:

@@ -105,6 +105,40 @@ def test_old_maid_human_draw_plays_select(spy_old_maid):
     assert "match" in spy_old_maid.calls
 
 
+def test_old_maid_non_match_plays_miss_for_human(spy_old_maid):
+    screen = old_maid_screen.OldMaidScreen(WINDOW_SIZE, Difficulty.EASY, lambda: None)
+    p1, p2 = old_maid_screen.HUMAN_NAME, old_maid_screen.AI_NAME
+    screen.game.players[p1].hand.cards = [Card(suit=Suit.CLUBS, rank=Rank.FIVE)]
+    # p2 holds 2 cards so drawing 1 away leaves them still active (not an
+    # instant game-over), matching the moment the SFX actually needs to fire.
+    screen.game.players[p2].hand.cards = [
+        Card(suit=Suit.HEARTS, rank=Rank.NINE),
+        Card(suit=Suit.SPADES, rank=Rank.NINE),
+    ]
+    screen.game.turn_index = screen.game.order.index(p1)
+
+    spy_old_maid.calls.clear()
+    screen._human_draw()
+    assert "miss" in spy_old_maid.calls
+    assert "match" not in spy_old_maid.calls
+
+
+def test_old_maid_non_match_plays_miss_for_ai(spy_old_maid):
+    screen = old_maid_screen.OldMaidScreen(WINDOW_SIZE, Difficulty.EASY, lambda: None)
+    p1, p2 = old_maid_screen.HUMAN_NAME, old_maid_screen.AI_NAME
+    screen.game.players[p2].hand.cards = [Card(suit=Suit.CLUBS, rank=Rank.THREE)]
+    screen.game.players[p1].hand.cards = [
+        Card(suit=Suit.HEARTS, rank=Rank.NINE),
+        Card(suit=Suit.SPADES, rank=Rank.NINE),
+    ]
+    screen.game.turn_index = screen.game.order.index(p2)
+
+    spy_old_maid.calls.clear()
+    screen._run_ai_turn()
+    assert "miss" in spy_old_maid.calls
+    assert "match" not in spy_old_maid.calls
+
+
 def test_old_maid_win_and_loss_sounds(spy_old_maid):
     screen = old_maid_screen.OldMaidScreen(WINDOW_SIZE, Difficulty.EASY, lambda: None)
     spy_old_maid.calls.clear()

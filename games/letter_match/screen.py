@@ -131,7 +131,7 @@ class LetterMatchScreen(Screen):
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(theme.BACKGROUND)
         draw_text(surface, "Letter Match", (30, 24), size=40, bold=True)
-        draw_text(surface, f"Time: {int(self._elapsed)}s", (self.size[0] - 200, 40), size=28, bold=True)
+        draw_text(surface, f"Time: {int(self._elapsed)}s", (self.size[0] - 280, 40), size=28, bold=True)  # clear of the pause icon
 
         msg_rect = pygame.Rect(60, 110, self.size[0] - 120, 70)
         draw_panel(surface, msg_rect)

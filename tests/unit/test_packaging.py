@@ -65,9 +65,32 @@ def test_contents_include_expected_paths(built_deb):
         "./usr/share/card-corner/core/card.py",
         "./usr/share/card-corner/games/go_fish/screen.py",
         "./usr/share/card-corner/ui/widgets.py",
+        "./usr/share/card-corner/audio/manager.py",
     ]
     for path in expected:
         assert path in contents, f"missing expected path: {path}"
+
+
+def test_extracted_package_can_actually_import_every_top_level_source_dir(built_deb, tmp_path):
+    """A narrower unit test importing e.g. audio.manager in isolation can
+    pass even if the .deb build itself forgot to vendor that directory
+    (exactly what happened here: audio/ was missing from both
+    pyproject.toml's package discovery and SOURCE_DIRS until this test was
+    added). Actually run the extracted, installed-layout main.py's imports
+    to catch that class of bug directly.
+    """
+    extract_dir = tmp_path / "import_check"
+    subprocess.run(["dpkg-deb", "-x", str(built_deb), str(extract_dir)], check=True)
+    app_dir = extract_dir / "usr" / "share" / "card-corner"
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import main"],
+        cwd=str(app_dir),
+        capture_output=True,
+        text=True,
+        env={"SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
 
 
 def test_launcher_script_is_executable(built_deb):

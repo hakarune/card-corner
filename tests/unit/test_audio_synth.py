@@ -60,6 +60,16 @@ def test_different_wave_shapes_produce_different_audio(surface):
     assert sine != square
 
 
+def test_out_of_range_volume_clamps_instead_of_raising(surface):
+    # A future caller passing e.g. volume=1.2 for emphasis must degrade to
+    # a clipped sample, not an uncaught OverflowError from array.array.
+    synth.init_mixer()
+    assert synth.tone(440, 0.05, volume=5.0) is not None
+    assert synth.sweep(600, 200, 0.05, volume=5.0) is not None
+    assert synth.sequence([(440, 0.05)], volume=5.0) is not None
+    assert synth.tone(440, 0.05, volume=-5.0) is not None
+
+
 def _approx(value, rel=1e-2):
     import pytest
 
