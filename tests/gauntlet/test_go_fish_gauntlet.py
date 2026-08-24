@@ -87,10 +87,15 @@ def test_go_fish_medium_beats_easy_on_average():
     # but under the pair rule a held rank's in-hand count is always 1 (2
     # auto-claims), so the count-based half of that signal is gone and only
     # the "books already claimed" and same-turn-memory halves remain -- a
-    # thinner edge (~0.51-0.52 measured across several independent seed
-    # ranges) than the pre-pairs-rule version had. A bigger sample than
+    # thinner edge than the pre-pairs-rule version had. A bigger sample than
     # WINRATE_TRIALS is needed to detect it reliably rather than getting
-    # lost in noise. HARD vs MEDIUM specifically is still not asserted (see
+    # lost in noise. (The earlier "~0.51-0.52, varies across runs"
+    # characterization here was itself measuring a bug, not real variance:
+    # decide_ask's candidate order came from raw set iteration, which is
+    # stable within one process but not across separate runs -- see the
+    # GoFishStrategy.decide_ask fix. With that fixed, this exact sweep is
+    # fully reproducible at 0.521.) HARD vs MEDIUM specifically is still not
+    # asserted (see
     # test_go_fish_hard_beats_easy_more_often_but_is_still_beatable's
     # sibling reasoning) -- both clearly and consistently beat EASY, which
     # is what the spec actually requires.
@@ -102,7 +107,10 @@ def test_go_fish_medium_beats_easy_on_average():
             wins += 1
     medium_vs_easy = wins / trials
     write_report("go_fish_difficulty_ordering", {"medium_vs_easy_winrate": medium_vs_easy, "trials": trials})
-    assert medium_vs_easy > 0.505
+    # Now that candidate ordering is deterministic across processes, this
+    # exact sweep reliably measures 0.521 -- a threshold of 0.505 was only
+    # ever that low to tolerate the non-determinism bug's run-to-run swing.
+    assert medium_vs_easy > 0.51
 
 
 def test_go_fish_hard_beats_easy_with_3_players_too():
