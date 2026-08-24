@@ -284,3 +284,56 @@ class DifficultySelectScreen(Screen):
         )
         for btn in self.buttons:
             btn.draw(surface)
+
+
+class LetterMatchModeSelectScreen(Screen):
+    """Letter Match's own setup screen (spec §8): pick between the
+    uppercase/lowercase mode and the animal-to-starting-letter mode.
+    Separate from DifficultySelectScreen since there's no AI/difficulty
+    concept in Letter Match at all.
+    """
+
+    MODES = [("Letters (Aa)", "letters"), ("Animals", "animals")]
+
+    def __init__(
+        self,
+        size: tuple[int, int],
+        on_pick: Callable[[str], "Screen"],
+        on_back: Callable[[], "Screen"],
+    ):
+        super().__init__(size)
+        self.buttons: list[Button] = []
+        color = theme.GAME_COLORS["letter_match"]
+
+        cx = size[0] // 2
+        btn_w, btn_h, gap = 420, 110, 34
+        start_y = 300
+        for i, (label, mode) in enumerate(self.MODES):
+            rect = (cx - btn_w // 2, start_y + i * (btn_h + gap), btn_w, btn_h)
+
+            def make_click(m=mode):
+                return lambda: self.go_to(on_pick(m))
+
+            self.buttons.append(Button(rect, label, make_click(), color=color, font_size=36))
+
+        back_rect = (40, size[1] - 100, 200, theme.MIN_TOUCH_TARGET)
+        self.buttons.append(
+            Button(back_rect, "Back", lambda: self.go_to(on_back()), color=theme.TEXT_MUTED, font_size=28)
+        )
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        for btn in self.buttons:
+            btn.handle_event(event)
+
+    def draw(self, surface: pygame.Surface) -> None:
+        surface.fill(theme.BACKGROUND)
+        draw_text(
+            surface,
+            "Letter Match: pick a mode!",
+            (self.size[0] // 2, 160),
+            size=40,
+            bold=True,
+            center=True,
+        )
+        for btn in self.buttons:
+            btn.draw(surface)

@@ -234,6 +234,17 @@ def draw_letter_tile(surface: pygame.Surface, rect: pygame.Rect, text: str, colo
     surface.blit(text_surf, text_surf.get_rect(center=rect.center))
 
 
+def draw_animal_tile(surface: pygame.Surface, rect: pygame.Rect, letter: str, color) -> None:
+    """Letter Match's "animals" mode picture tile (spec §8): same tinted
+    tile chrome as draw_letter_tile, an animal icon in place of the letter
+    text. `letter` looks the icon up via ui.items.ANIMAL_ICONS.
+    """
+    pygame.draw.rect(surface, theme._tint(color), rect, border_radius=14)
+    pygame.draw.rect(surface, color, rect, width=5, border_radius=14)
+    _, icon_fn = items.ANIMAL_ICONS[letter]
+    icon_fn(surface, rect, theme.TEXT_DARK)
+
+
 def draw_flip(
     surface: pygame.Surface,
     rect: pygame.Rect,

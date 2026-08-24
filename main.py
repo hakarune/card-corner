@@ -20,7 +20,7 @@ from games.letter_match.screen import LetterMatchScreen
 from games.memory.screen import MemoryScreen
 from games.old_maid.screen import OldMaidScreen
 from ui import settings, theme
-from ui.launcher import DifficultySelectScreen, LauncherScreen
+from ui.launcher import DifficultySelectScreen, LauncherScreen, LetterMatchModeSelectScreen
 from ui.screen import Screen
 
 GAME_SCREENS = {
@@ -36,7 +36,10 @@ POS_EVENTS = {pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP}
 def make_launcher(size: tuple[int, int]) -> Screen:
     def on_select(key: str) -> Screen:
         if key == "letter_match":
-            return LetterMatchScreen(size, lambda: make_launcher(size))
+            def on_pick_mode(mode):
+                return LetterMatchScreen(size, lambda: make_launcher(size), mode=mode)
+
+            return LetterMatchModeSelectScreen(size, on_pick_mode, lambda: make_launcher(size))
         screen_cls, label = GAME_SCREENS[key]
         color = theme.GAME_COLORS[key]
 

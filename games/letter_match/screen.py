@@ -4,6 +4,7 @@ miss (spec §5.4).
 """
 from __future__ import annotations
 
+import math
 from typing import Callable, Optional
 
 import pygame
@@ -15,6 +16,7 @@ from ui.screen import Screen
 from ui.widgets import (
     Button,
     Confetti,
+    draw_animal_tile,
     draw_game_over_modal,
     draw_letter_tile,
     draw_panel,
@@ -27,13 +29,19 @@ from .game import DEFAULT_LETTER_COUNT, LetterMatchGame
 RESOLVE_PAUSE = 0.7
 GRID_COLS = 4
 
+MODE_MESSAGES = {
+    "letters": "Match each big letter to its little letter!",
+    "animals": "Match each animal to its starting letter!",
+}
+
 
 class LetterMatchScreen(Screen):
-    def __init__(self, size: tuple[int, int], on_menu):
+    def __init__(self, size: tuple[int, int], on_menu, mode: str = "letters"):
         super().__init__(size)
         self.on_menu = on_menu
-        self.game = LetterMatchGame(letter_count=DEFAULT_LETTER_COUNT, seed=None)
-        self.message = "Match each big letter to its little letter!"
+        self.mode = mode
+        self.game = LetterMatchGame(letter_count=DEFAULT_LETTER_COUNT, seed=None, mode=mode)
+        self.message = MODE_MESSAGES[mode]
         self._locked = False
         self._timer = 0.0
         self._pending_callback: Optional[Callable[[], None]] = None
@@ -81,7 +89,7 @@ class LetterMatchScreen(Screen):
             first, second = result.pos1, result.pos2
 
             def clear() -> None:
-                self.message = "Match each big letter to its little letter!"
+                self.message = MODE_MESSAGES[self.mode]
 
             self._schedule(RESOLVE_PAUSE, clear)
 
@@ -96,7 +104,7 @@ class LetterMatchScreen(Screen):
         ]
 
     def _restart(self) -> None:
-        self.go_to(LetterMatchScreen(self.size, self.on_menu))
+        self.go_to(LetterMatchScreen(self.size, self.on_menu, mode=self.mode))
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if not self.game.game_over and self._pause.handle_event(event):
@@ -163,11 +171,34 @@ class LetterMatchScreen(Screen):
             rect = pygame.Rect(
                 start_x + col * (tile_w + gap), y_start + row * (tile_h + gap), tile_w, tile_h
             )
+            tile = self.game.board[pos]
+            is_selected = pos == self.game.pending_first
+            # A selected tile scales up slightly, on top of the color shift
+            # below -- "obviously different from unselected" per spec §8,
+            # not just a subtler tint swap.
+            draw_rect = rect.inflate(10, 10) if is_selected else rect
+
             if pos in self.game.matched:
-                draw_letter_tile(surface, rect, self.game.board[pos].display, theme.SUCCESS)
-            elif pos == self.game.pending_first:
-                draw_letter_tile(surface, rect, self.game.board[pos].display, theme.ACCENT)
+                tile_color = theme.SUCCESS
+            elif is_selected:
+                tile_color = theme.ACCENT
             else:
-                draw_letter_tile(surface, rect, self.game.board[pos].display, color)
+                tile_color = color
+
+            if tile.is_animal:
+                draw_animal_tile(surface, draw_rect, tile.letter, tile_color)
+            else:
+                draw_letter_tile(surface, draw_rect, tile.display, tile_color)
+
+            if is_selected:
+                # A pulsing high-contrast glow ring -- teal against this
+                # game's orange/yellow palette, so it reads clearly
+                # regardless of how close ACCENT and the base color are in
+                # hue, not just the background tint alone.
+                pulse = 4 + int(3 * (0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 150)))
+                pygame.draw.rect(
+                    surface, theme.SECONDARY, draw_rect.inflate(10, 10), width=pulse, border_radius=18
+                )
+
             rects.append((pos, rect))
         return rects

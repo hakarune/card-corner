@@ -131,6 +131,90 @@ def _boat(surface, rect, color) -> None:
     pygame.draw.polygon(surface, color, [(cx, cy - s * 1.4), (cx, cy), (cx + s * 0.9, cy)])
 
 
+def _cat(surface, rect, color) -> None:
+    cx, cy = rect.center
+    r = min(rect.width, rect.height) * 0.2
+    pygame.draw.circle(surface, color, (cx, cy), r)
+    pygame.draw.polygon(
+        surface, color,
+        [(cx - r * 0.8, cy - r * 0.5), (cx - r * 0.2, cy - r * 0.5), (cx - r * 0.6, cy - r * 1.3)],
+    )
+    pygame.draw.polygon(
+        surface, color,
+        [(cx + r * 0.8, cy - r * 0.5), (cx + r * 0.2, cy - r * 0.5), (cx + r * 0.6, cy - r * 1.3)],
+    )
+
+
+def _dog(surface, rect, color) -> None:
+    cx, cy = rect.center
+    r = min(rect.width, rect.height) * 0.18
+    pygame.draw.circle(surface, color, (cx, int(cy - r * 0.2)), r)
+    pygame.draw.ellipse(surface, color, pygame.Rect(0, 0, r * 0.6, r * 1.3).move(cx - r * 1.3, cy - r * 0.6))
+    pygame.draw.ellipse(surface, color, pygame.Rect(0, 0, r * 0.6, r * 1.3).move(cx + r * 0.7, cy - r * 0.6))
+    pygame.draw.ellipse(surface, color, pygame.Rect(0, 0, r * 0.9, r * 0.6).move(cx - r * 0.45, cy + r * 0.4))
+
+
+def _lion(surface, rect, color) -> None:
+    # A plain ring-on-ring (mane, then face) read as a target/eye rather
+    # than a lion in visual QA -- added mane tufts + face ears so the
+    # "furry ring" actually registers as a mane.
+    cx, cy = rect.center
+    r = min(rect.width, rect.height) * 0.22
+    lighter = tuple(min(255, c + 50) for c in color)
+    pygame.draw.circle(surface, lighter, (cx, cy), r * 1.35)  # mane
+    for dx in (-1, 1):
+        pygame.draw.circle(surface, lighter, (int(cx + dx * r * 1.1), int(cy - r * 0.9)), r * 0.5)
+    pygame.draw.circle(surface, color, (cx, cy), r * 0.85)  # face
+    for dx in (-1, 1):
+        pygame.draw.circle(surface, color, (int(cx + dx * r * 0.6), int(cy - r * 0.7)), r * 0.25)
+
+
+def _owl(surface, rect, color) -> None:
+    cx, cy = rect.center
+    r = min(rect.width, rect.height) * 0.22
+    pygame.draw.circle(surface, color, (cx, cy), r)
+    lighter = tuple(min(255, c + 60) for c in color)
+    eye_r = r * 0.35
+    pygame.draw.circle(surface, lighter, (int(cx - r * 0.4), int(cy - r * 0.1)), eye_r)
+    pygame.draw.circle(surface, lighter, (int(cx + r * 0.4), int(cy - r * 0.1)), eye_r)
+    pygame.draw.polygon(
+        surface, color,
+        [(cx - r * 0.15, cy + r * 0.15), (cx + r * 0.15, cy + r * 0.15), (cx, cy + r * 0.45)],
+    )
+
+
+def _pig(surface, rect, color) -> None:
+    cx, cy = rect.center
+    r = min(rect.width, rect.height) * 0.2
+    pygame.draw.circle(surface, color, (cx, cy), r)
+    lighter = tuple(min(255, c + 60) for c in color)
+    pygame.draw.circle(surface, lighter, (cx, int(cy + r * 0.3)), r * 0.4)
+    pygame.draw.polygon(
+        surface, color,
+        [(cx - r * 0.7, cy - r * 0.6), (cx - r * 0.2, cy - r * 0.6), (cx - r * 0.5, cy - r * 1.2)],
+    )
+    pygame.draw.polygon(
+        surface, color,
+        [(cx + r * 0.7, cy - r * 0.6), (cx + r * 0.2, cy - r * 0.6), (cx + r * 0.5, cy - r * 1.2)],
+    )
+
+
+# Letter Match's "animals" mode (spec §8): an animal picture matched to its
+# starting letter. Keys must exactly match games.letter_match.game's
+# ANIMAL_MODE_LETTERS (cross-checked by tests/unit/test_letter_match.py) --
+# the engine picks which letters are eligible without depending on pygame,
+# this supplies the actual drawings.
+ANIMAL_ICONS: dict[str, tuple[str, Callable]] = {
+    "B": ("Bird", _bird),
+    "C": ("Cat", _cat),
+    "D": ("Dog", _dog),
+    "F": ("Fish", _fish_item),
+    "L": ("Lion", _lion),
+    "O": ("Owl", _owl),
+    "P": ("Pig", _pig),
+}
+
+
 RANK_ITEMS: dict[Rank, tuple[str, Callable]] = {
     Rank.ACE: ("Sun", _sun),
     Rank.TWO: ("Moon", _moon),

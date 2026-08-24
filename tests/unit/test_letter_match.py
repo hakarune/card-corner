@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from games.letter_match.game import LetterMatchGame
+from games.letter_match.game import ANIMAL_MODE_LETTERS, LetterMatchGame
 
 
 def make_game(seed=7, letter_count=6):
@@ -232,3 +232,127 @@ def test_input_fuzzing_never_crashes_or_gets_stuck():
 
     assert game.game_over
     assert len(game.matched) == n
+
+
+# -- board reshuffle after a match (spec §8: not position-memorizable) ----
+
+
+def test_successful_match_reshuffles_the_remaining_unmatched_positions():
+    game = LetterMatchGame(letter_count=8, seed=42)
+    before = list(game.board)
+    a, b = find_matching_pair(game)
+    game.click(a)
+    game.click(b)
+
+    # The matched pair's own tiles never move -- they're settled, revealed
+    # "solved" slots -- but the board as a whole must differ from before,
+    # i.e. at least one still-unmatched tile actually changed position.
+    assert game.board[a] == before[a]
+    assert game.board[b] == before[b]
+    unmatched_now = [game.board[i] for i in range(len(game.board)) if i not in game.matched]
+    unmatched_before = [before[i] for i in range(len(before)) if i not in game.matched]
+    assert unmatched_now != unmatched_before
+
+
+def test_matched_tiles_are_undisturbed_by_later_reshuffles():
+    game = LetterMatchGame(letter_count=8, seed=3)
+    a, b = find_matching_pair(game)
+    game.click(a)
+    game.click(b)
+    tile_a, tile_b = game.board[a], game.board[b]
+
+    # Force several more match/reshuffle cycles and confirm the first
+    # matched pair's tiles and positions never change afterward.
+    guard = 0
+    while not game.game_over and guard < 20:
+        unflipped = game.unflipped_positions()
+        if len(unflipped) < 2:
+            break
+        first = unflipped[0]
+        partner = next(
+            i for i in unflipped
+            if i != first and game.board[i].letter == game.board[first].letter
+            and game.board[i].is_upper != game.board[first].is_upper
+        )
+        game.click(first)
+        game.click(partner)
+        guard += 1
+        assert game.board[a] == tile_a
+        assert game.board[b] == tile_b
+
+
+def test_a_miss_does_not_reshuffle_the_board():
+    game = LetterMatchGame(letter_count=8, seed=42)
+    before = list(game.board)
+    a, b = find_non_matching_pair(game)
+    game.click(a)
+    game.click(b)
+    assert game.board == before
+
+
+def test_full_game_still_completes_correctly_with_reshuffling(monkeypatch=None):
+    # Same brute-force-scan strategy as test_full_game_completes_and_ends,
+    # but explicitly re-reads game.board fresh every iteration (as any real
+    # correct client must, post-reshuffle) rather than caching positions.
+    game = LetterMatchGame(letter_count=6, seed=5)
+    while not game.game_over:
+        unflipped = game.unflipped_positions()
+        first = unflipped[0]
+        partner = next(
+            i for i in unflipped
+            if i != first and game.board[i].letter == game.board[first].letter
+            and game.board[i].is_upper != game.board[first].is_upper
+        )
+        game.click(first)
+        game.click(partner)
+    assert game.game_over
+    assert len(game.matched) == len(game.board)
+
+
+# -- "animals" mode (spec §8: match an animal picture to its starting letter)
+
+
+def test_animals_mode_pairs_a_letter_tile_with_an_animal_tile_per_letter():
+    game = LetterMatchGame(letter_count=6, seed=1, mode="animals")
+    assert len(game.board) == 12
+    letter_tiles = [t for t in game.board if not t.is_animal]
+    animal_tiles = [t for t in game.board if t.is_animal]
+    assert len(letter_tiles) == 6
+    assert len(animal_tiles) == 6
+    assert all(t.is_upper for t in letter_tiles)
+    assert all(not t.is_upper for t in animal_tiles)
+    assert {t.letter for t in letter_tiles} == {t.letter for t in animal_tiles}
+    assert {t.letter for t in letter_tiles} <= set(ANIMAL_MODE_LETTERS)
+
+
+def test_animals_mode_matches_by_shared_letter_like_the_default_mode():
+    game = LetterMatchGame(letter_count=6, seed=1, mode="animals")
+    a, b = find_matching_pair(game)
+    game.click(a)
+    result = game.click(b)
+    assert result.matched
+
+
+def test_animals_mode_letter_count_capped_by_available_animal_letters():
+    with pytest.raises(ValueError):
+        LetterMatchGame(letter_count=len(ANIMAL_MODE_LETTERS) + 1, mode="animals")
+    # But that same count is fine in the default "letters" mode (26 letters
+    # available), confirming the cap is mode-specific, not a global rule.
+    LetterMatchGame(letter_count=len(ANIMAL_MODE_LETTERS) + 1, mode="letters")
+
+
+def test_invalid_mode_raises():
+    with pytest.raises(ValueError):
+        LetterMatchGame(mode="not_a_real_mode")
+
+
+def test_default_mode_is_letters_and_unaffected_by_the_animals_addition():
+    game = LetterMatchGame(letter_count=6, seed=1)
+    assert game.mode == "letters"
+    assert all(not t.is_animal for t in game.board)
+
+
+def test_animal_mode_letters_and_ui_animal_icons_stay_in_sync():
+    from ui.items import ANIMAL_ICONS
+
+    assert set(ANIMAL_MODE_LETTERS) == set(ANIMAL_ICONS.keys())

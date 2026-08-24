@@ -13,7 +13,7 @@ from games.letter_match.screen import LetterMatchScreen
 from games.memory.screen import MemoryScreen
 from games.old_maid.screen import OldMaidScreen
 from main import make_launcher
-from ui.launcher import DifficultySelectScreen, LauncherScreen
+from ui.launcher import DifficultySelectScreen, LauncherScreen, LetterMatchModeSelectScreen
 from ui.theme import WINDOW_SIZE
 
 
@@ -22,7 +22,10 @@ def click(screen, pos):
     screen.handle_event(event)
 
 
-def test_letter_match_tile_goes_straight_to_the_game_no_difficulty_picker():
+def test_letter_match_tile_goes_to_a_mode_picker_not_straight_to_the_game():
+    # Spec §8 added a second mode, so Letter Match now needs its own setup
+    # step (no AI/difficulty concept here, hence a dedicated screen type
+    # rather than reusing DifficultySelectScreen).
     launcher = make_launcher(WINDOW_SIZE)
     assert isinstance(launcher, LauncherScreen)
     letter_btn = next(
@@ -30,7 +33,33 @@ def test_letter_match_tile_goes_straight_to_the_game_no_difficulty_picker():
     )
     click(launcher, letter_btn.rect.center)
     next_screen = launcher.next_screen()
-    assert isinstance(next_screen, LetterMatchScreen)
+    assert isinstance(next_screen, LetterMatchModeSelectScreen)
+
+
+@pytest.mark.parametrize("label,mode", [("Letters (Aa)", "letters"), ("Animals", "animals")])
+def test_letter_match_mode_picker_leads_to_the_game_in_the_right_mode(label, mode):
+    launcher = make_launcher(WINDOW_SIZE)
+    letter_btn = next(btn for btn, lbl, _ in launcher._icons if lbl == "Letter Match")
+    click(launcher, letter_btn.rect.center)
+    mode_screen = launcher.next_screen()
+
+    mode_btn = next(b for b in mode_screen.buttons if b.label == label)
+    click(mode_screen, mode_btn.rect.center)
+    game_screen = mode_screen.next_screen()
+    assert isinstance(game_screen, LetterMatchScreen)
+    assert game_screen.mode == mode
+
+
+def test_letter_match_mode_picker_back_button_returns_to_a_fresh_launcher():
+    launcher = make_launcher(WINDOW_SIZE)
+    letter_btn = next(btn for btn, lbl, _ in launcher._icons if lbl == "Letter Match")
+    click(launcher, letter_btn.rect.center)
+    mode_screen = launcher.next_screen()
+
+    back_btn = next(b for b in mode_screen.buttons if b.label == "Back")
+    click(mode_screen, back_btn.rect.center)
+    back_to_menu = mode_screen.next_screen()
+    assert isinstance(back_to_menu, LauncherScreen)
 
 
 @pytest.mark.parametrize(
