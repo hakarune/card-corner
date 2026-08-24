@@ -67,8 +67,9 @@ def test_go_fish_human_ask_plays_select_then_match_or_miss(spy_go_fish):
     screen.game.turn_index = screen.game.order.index(p1)
 
     screen._human_ask(Rank.SEVEN)
-
     assert spy_go_fish.calls[0] == "card_select"
+    screen.update(go_fish_screen.HUMAN_ASK_RESOLVE_DELAY)  # symmetric ask-then-resolve beat
+
     assert "match" in spy_go_fish.calls
 
 

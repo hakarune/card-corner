@@ -58,19 +58,43 @@ def _drain_ai_turns(screen, flag_attr: str, max_steps: int = MAX_STEPS) -> None:
     assert steps < max_steps, f"{flag_attr} never cleared within {max_steps} steps"
 
 
+def _drain_go_fish_pending(screen, surface, max_steps: int = MAX_STEPS) -> None:
+    # An ask is now a visible request, not an instant transfer: the AI's
+    # ask waits for the human to click a matching card (or, with no match,
+    # a short auto-resolve timer), and the human's own ask has a short
+    # symmetric resolve delay. Advance past all of that here so the outer
+    # walkthrough loop can keep treating a turn as a single atomic step.
+    # _card_rects is only ever populated by draw(), so it must be called
+    # here (not just by the outer loop) or a click has nothing to aim at.
+    steps = 0
+    while (
+        screen._awaiting_handover or screen._ai_resolve_timer > 0 or screen._waiting_for_human_resolve
+    ) and steps < max_steps:
+        screen.draw(surface)
+        if screen._awaiting_handover:
+            for rect, rank in screen._card_rects:
+                if rank == screen._pending_ai_ask:
+                    click(screen, rect.center)
+                    break
+        screen.update(5.0)
+        steps += 1
+    assert steps < max_steps, "go fish pending ask state never resolved"
+
+
 def test_go_fish_full_playthrough_reaches_game_over_and_returns_to_menu(surface):
     menu_hits = []
     screen = GoFishScreen(WINDOW_SIZE, Difficulty.EASY, lambda: menu_hits.append(1) or "MENU")
     steps = 0
     while not screen.game.game_over and steps < MAX_STEPS:
         _drain_ai_turns(screen, "_waiting_for_ai")
+        _drain_go_fish_pending(screen, surface)
         screen.draw(surface)
         if screen.game.game_over:
             break
         if screen._card_rects:
             rect, _rank = screen._card_rects[0]
             click(screen, rect.center)
-        screen.update(0.0)
+            _drain_go_fish_pending(screen, surface)
         steps += 1
     assert screen.game.game_over
     assert steps < MAX_STEPS

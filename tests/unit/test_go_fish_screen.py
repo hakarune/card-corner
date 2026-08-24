@@ -73,3 +73,64 @@ def test_small_hand_still_uses_full_size_cards(surface):
     screen = make_screen_with_hand(surface, ranks)
     for rect, _ in screen._card_rects:
         assert rect.height == 130
+
+
+# -- interactive ask (spec §5: "less passive" AI-ask/human-ask flow) -------
+
+
+def test_ai_ask_with_a_match_in_hand_waits_for_a_handover_click_not_an_instant_transfer(surface):
+    screen = make_screen_with_hand(surface, [Rank.SEVEN, Rank.TWO])
+    screen.game.players["Fox"].hand.cards = [Card(suit=Suit.HEARTS, rank=Rank.SEVEN)]
+    screen.game.turn_index = screen.game.order.index("Fox")
+
+    screen._ai_decide()
+    assert screen._pending_ai_ask == Rank.SEVEN
+    assert screen._awaiting_handover is True
+    hand_before = list(screen.game.players["You"].hand.cards)
+
+    # Clicking a non-matching card must not resolve the ask.
+    screen.draw(surface)
+    for rect, rank in screen._card_rects:
+        if rank == Rank.TWO:
+            click(screen, rect.center)
+            break
+    assert screen._awaiting_handover is True
+    assert screen.game.players["You"].hand.cards == hand_before
+
+    # Clicking the actual matching card hands it over and resolves the ask.
+    for rect, rank in screen._card_rects:
+        if rank == Rank.SEVEN:
+            click(screen, rect.center)
+            break
+    assert screen._awaiting_handover is False
+    assert screen.game.players["You"].hand.cards != hand_before
+
+
+def test_ai_ask_with_no_match_auto_resolves_after_a_beat_with_nothing_to_click(surface):
+    screen = make_screen_with_hand(surface, [Rank.TWO])
+    screen.game.players["Fox"].hand.cards = [Card(suit=Suit.HEARTS, rank=Rank.SEVEN)]
+    screen.game.turn_index = screen.game.order.index("Fox")
+
+    screen._ai_decide()
+    assert screen._pending_ai_ask == Rank.SEVEN
+    assert screen._awaiting_handover is False
+    assert screen._ai_resolve_timer > 0
+
+    screen.update(screen._ai_resolve_timer + 0.01)
+    assert screen._ai_resolve_timer == 0.0
+    assert screen._pending_ai_ask is None
+
+
+def test_human_ask_has_a_symmetric_delay_before_it_actually_transfers_cards(surface):
+    screen = make_screen_with_hand(surface, [Rank.SEVEN])
+    screen.game.players["Fox"].hand.cards = [Card(suit=Suit.HEARTS, rank=Rank.SEVEN)]
+    screen.game.turn_index = screen.game.order.index("You")
+    hand_before_ai = list(screen.game.players["Fox"].hand.cards)
+
+    screen._human_ask(Rank.SEVEN)
+    assert screen._waiting_for_human_resolve is True
+    assert screen.game.players["Fox"].hand.cards == hand_before_ai  # not yet transferred
+
+    screen.update(0.5)
+    assert screen._waiting_for_human_resolve is False
+    assert screen.game.players["Fox"].hand.cards != hand_before_ai

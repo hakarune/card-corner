@@ -22,8 +22,9 @@ def write_report(name: str, data: dict) -> None:
 
 
 def go_fish_legal_state(game: GoFishGame) -> bool:
-    """No card duplicated or lost across hands/stock/books; no more than 13
-    books claimed in total.
+    """No card duplicated or lost across hands/stock/books; no more than 26
+    books (pairs, not 4-of-a-kind -- see games/go_fish/game.py's docstring)
+    claimed in total.
     """
     live: list[Card] = list(game.stock)
     for p in game.players.values():
@@ -31,9 +32,9 @@ def go_fish_legal_state(game: GoFishGame) -> bool:
     if len(live) != len(set(live)):
         return False
     total_books = sum(len(p.books) for p in game.players.values())
-    if total_books > 13:
+    if total_books > 26:
         return False
-    total = len(live) + 4 * total_books
+    total = len(live) + 2 * total_books
     return total == 52
 
 

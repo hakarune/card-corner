@@ -11,7 +11,7 @@ import pygame
 
 from audio.manager import audio
 
-from . import theme
+from . import items, theme
 
 
 class Button:
@@ -199,6 +199,28 @@ def draw_card_face(
     symbol_font = theme.get_font(max(int(rect.height * 0.38), 16), bold=True)
     symbol_surf = symbol_font.render(symbol, True, color)
     surface.blit(symbol_surf, symbol_surf.get_rect(center=rect.center))
+
+
+def draw_item_card_face(surface: pygame.Surface, rect: pygame.Rect, rank, card_theme) -> None:
+    """A kid-themed card front: a simple everyday-item icon (sun, star,
+    umbrella, ...) and its name, replacing the standard suit symbol/rank
+    label (spec §5/§7 -- standard playing cards aren't engaging for this
+    age group). `rank` picks the item via ui.items.RANK_ITEMS; the
+    underlying Suit/Rank identity and matching logic are untouched, this
+    only changes what's drawn. Every copy of a rank (all 4 suits) renders
+    identically -- Go Fish/Memory both match by rank alone, so there's
+    nothing for a differing suit to usefully signal here.
+    """
+    pygame.draw.rect(surface, card_theme.front_tint, rect, border_radius=12)
+    pygame.draw.rect(surface, card_theme.back_color, rect, width=3, border_radius=12)
+
+    name, icon_fn = items.RANK_ITEMS[rank]
+    icon_area = rect.inflate(-int(rect.width * 0.3), -int(rect.height * 0.45))
+    icon_area.centery = rect.centery - rect.height * 0.08
+    icon_fn(surface, icon_area, card_theme.back_color)
+
+    label_surf = _fit_text(name, int(rect.width * 0.85), max(int(rect.height * 0.13), 11), theme.TEXT_DARK)
+    surface.blit(label_surf, label_surf.get_rect(midbottom=(rect.centerx, rect.bottom - 8)))
 
 
 def draw_letter_tile(surface: pygame.Surface, rect: pygame.Rect, text: str, color) -> None:

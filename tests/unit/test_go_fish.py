@@ -20,20 +20,22 @@ def all_cards_accounted_for(game: GoFishGame) -> bool:
         )
     # Books remove cards from play entirely rather than tracking exact card
     # identities, so instead just check hand+stock cards are unique and the
-    # total count (hands + stock + 4*books) matches 52.
+    # total count (hands + stock + 2*books, since a book is now a pair)
+    # matches 52.
     live = list(game.stock)
     for p in game.players.values():
         live.extend(p.hand.cards)
     if len(live) != len(set(live)):
         return False
-    total = len(live) + 4 * sum(len(p.books) for p in game.players.values())
+    total = len(live) + 2 * sum(len(p.books) for p in game.players.values())
     return total == 52
 
 
 def test_deal_sizes_two_players():
+    # With books as pairs, a 7-card initial deal can easily contain a pair
+    # and auto-claim a book right away -- so the invariant has to account
+    # for cards already set aside as books, not just hand+stock.
     game = make_game()
-    total_hand = sum(len(p.hand) for p in game.players.values())
-    assert total_hand + len(game.stock) == 52
     assert all_cards_accounted_for(game)
 
 
@@ -71,6 +73,9 @@ def test_cannot_ask_unknown_player():
 
 
 def test_successful_ask_transfers_all_cards_and_goes_again():
+    # p1 holds 1 seven; p2 holds 2. All 3 transfer, immediately claiming one
+    # pair-book (2 of the 3) and leaving exactly 1 seven behind in hand --
+    # books are pairs now, not 4-of-a-kind, so this auto-claims mid-ask.
     game = make_game()
     p1, p2 = game.order
     game.players[p1].hand.cards = [
@@ -90,7 +95,8 @@ def test_successful_ask_transfers_all_cards_and_goes_again():
     assert result.cards_transferred == 2
     assert result.went_again
     assert game.current_player_name == p1
-    assert game.players[p1].hand.count_of_rank(Rank.SEVEN) == 3
+    assert result.books_claimed_by_asker == [Rank.SEVEN]
+    assert game.players[p1].hand.count_of_rank(Rank.SEVEN) == 1
     assert not game.players[p2].hand.has_rank(Rank.SEVEN)
 
 
@@ -113,6 +119,33 @@ def test_failed_ask_draws_and_passes_turn_on_non_match():
 
 
 def test_failed_ask_draw_matching_rank_goes_again():
+    # An extra, unrelated card keeps the hand non-empty after the pair
+    # auto-claims, so this specifically tests "a match keeps your turn"
+    # rather than colliding with the separate empty-hand-and-no-stock case
+    # (covered by test_failed_ask_draw_matching_rank_that_empties_hand_and_stock_ends_turn).
+    game = make_game()
+    p1, p2 = game.order
+    game.players[p1].hand.cards = [
+        Card(suit=Suit.HEARTS, rank=Rank.SEVEN),
+        Card(suit=Suit.CLUBS, rank=Rank.TWO),
+    ]
+    game.players[p2].hand.cards = [Card(suit=Suit.CLUBS, rank=Rank.KING)]
+    game.stock = [Card(suit=Suit.SPADES, rank=Rank.SEVEN)]
+    game.turn_index = game.order.index(p1)
+
+    result = game.ask(p1, p2, Rank.SEVEN)
+
+    assert result.asker_drew_matched
+    assert result.books_claimed_by_asker == [Rank.SEVEN]
+    assert result.went_again
+    assert game.current_player_name == p1
+    assert game.players[p1].hand.has_rank(Rank.TWO)
+
+
+def test_failed_ask_draw_matching_rank_that_empties_hand_and_stock_ends_turn():
+    # Drawing the exact match completes the pair-book and empties the
+    # hand; with the stock also exhausted there's nothing to redraw with,
+    # so unlike the non-empty case above, the turn correctly ends here.
     game = make_game()
     p1, p2 = game.order
     game.players[p1].hand.cards = [Card(suit=Suit.HEARTS, rank=Rank.SEVEN)]
@@ -123,13 +156,39 @@ def test_failed_ask_draw_matching_rank_goes_again():
     result = game.ask(p1, p2, Rank.SEVEN)
 
     assert result.asker_drew_matched
-    assert result.went_again
-    assert game.current_player_name == p1
+    assert result.books_claimed_by_asker == [Rank.SEVEN]
+    assert game.players[p1].hand.is_empty()
+    assert not result.went_again
+    assert game.current_player_name == p2
 
 
 def test_book_is_claimed_automatically():
+    # A book is a pair now: p1 holds 1 seven, asks p2 (who holds 1), and the
+    # transfer alone completes the pair. score/books use a before/after
+    # delta since the initial 7-card deal can itself contain a pair and
+    # auto-claim a book before this test's setup even runs.
     game = make_game()
     p1, p2 = game.order
+    score_before = game.players[p1].score
+    game.players[p1].hand.cards = [Card(suit=Suit.HEARTS, rank=Rank.SEVEN)]
+    game.players[p2].hand.cards = [Card(suit=Suit.SPADES, rank=Rank.SEVEN)]
+    game.turn_index = game.order.index(p1)
+    game.stock = []
+
+    result = game.ask(p1, p2, Rank.SEVEN)
+
+    assert result.books_claimed_by_asker == [Rank.SEVEN]
+    assert Rank.SEVEN in game.players[p1].books
+    assert not game.players[p1].hand.has_rank(Rank.SEVEN)
+    assert game.players[p1].score == score_before + 1
+
+
+def test_rank_with_four_copies_can_claim_two_books_at_once():
+    # If all 4 copies of a rank land in one hand simultaneously (e.g. the
+    # initial deal), that's 2 books claimed at once, not 1.
+    game = make_game()
+    p1, p2 = game.order
+    score_before = game.players[p1].score
     game.players[p1].hand.cards = [
         Card(suit=Suit.HEARTS, rank=Rank.SEVEN),
         Card(suit=Suit.CLUBS, rank=Rank.SEVEN),
@@ -141,10 +200,10 @@ def test_book_is_claimed_automatically():
 
     result = game.ask(p1, p2, Rank.SEVEN)
 
-    assert Rank.SEVEN in result.books_claimed_by_asker
-    assert Rank.SEVEN in game.players[p1].books
+    assert result.books_claimed_by_asker == [Rank.SEVEN, Rank.SEVEN]
+    assert game.players[p1].books.count(Rank.SEVEN) == 2
     assert not game.players[p1].hand.has_rank(Rank.SEVEN)
-    assert game.players[p1].score == 1
+    assert game.players[p1].score == score_before + 2
 
 
 def test_empty_hand_gets_free_draw_on_turn_start():
@@ -160,15 +219,17 @@ def test_empty_hand_gets_free_draw_on_turn_start():
     assert not game.players[p1].hand.is_empty()
 
 
-def test_game_ends_when_all_13_books_claimed():
+def test_game_ends_when_all_26_books_claimed():
     game = make_game()
     for name in game.order:
         game.players[name].hand.cards = []
-    for i, rank in enumerate(list(Rank)):
+        game.players[name].books = []  # the initial deal may have already auto-claimed some
+    for i, rank in enumerate(list(Rank) * 2):  # 2 books per rank x 13 ranks = 26
         game.players[game.order[i % 2]].books.append(rank)
+    game.game_over = False
     game._check_game_over()
     assert game.game_over
-    assert sum(len(p.books) for p in game.players.values()) == 13
+    assert sum(len(p.books) for p in game.players.values()) == 26
 
 
 def test_game_ends_stalemate_at_turn_cap():
@@ -243,9 +304,10 @@ def test_turn_count_reaches_stalemate_cap_through_real_play_without_crashing():
 
 
 def test_hit_that_empties_hand_triggers_free_redraw_and_keeps_the_turn():
-    # Asker's whole hand is exactly the 4th card of a book; the hit claims
-    # the book and empties their hand, which should trigger a free redraw
-    # from the stock so they have a card to keep playing with.
+    # Asker holds 3 sevens; the 4th arrives via the ask, completing both
+    # pair-books at once (4 // 2 = 2) and fully emptying their hand of
+    # sevens, which should trigger a free redraw from the stock so they
+    # have a card to keep playing with.
     game = make_game()
     p1, p2 = game.order
     game.players[p1].hand.cards = [
@@ -259,7 +321,7 @@ def test_hit_that_empties_hand_triggers_free_redraw_and_keeps_the_turn():
 
     result = game.ask(p1, p2, Rank.SEVEN)
 
-    assert Rank.SEVEN in result.books_claimed_by_asker
+    assert result.books_claimed_by_asker == [Rank.SEVEN, Rank.SEVEN]
     assert result.asker_drew
     assert not game.players[p1].hand.is_empty()
     assert game.players[p1].hand.has_rank(Rank.NINE)
@@ -282,7 +344,7 @@ def test_hit_that_empties_hand_with_empty_stock_ends_the_turn():
 
     result = game.ask(p1, p2, Rank.SEVEN)
 
-    assert Rank.SEVEN in result.books_claimed_by_asker
+    assert result.books_claimed_by_asker == [Rank.SEVEN, Rank.SEVEN]
     assert not result.asker_drew
     assert game.players[p1].hand.is_empty()
     assert not result.went_again
@@ -339,3 +401,55 @@ def test_unseeded_games_produce_different_ai_play_sequences():
     seq_a = play_out(game_a)
     seq_b = play_out(game_b)
     assert seq_a != seq_b
+
+
+def test_books_claimed_by_rank_counts_across_all_players():
+    game = make_game()
+    p1, p2 = game.order
+    game.players[p1].books = [Rank.SEVEN, Rank.SEVEN, Rank.KING]
+    game.players[p2].books = [Rank.SEVEN]
+    counts = game.books_claimed_by_rank()
+    assert counts[Rank.SEVEN] == 3
+    assert counts[Rank.KING] == 1
+    assert Rank.TWO not in counts  # never claimed by anyone -> absent, not zero
+
+
+def _two_ai_game(seed):
+    return GoFishGame(
+        ["Fox1", "Fox2"], ai_difficulties={"Fox1": Difficulty.EASY, "Fox2": Difficulty.EASY}, seed=seed
+    )
+
+
+def test_decide_ai_ask_is_a_pure_query_that_does_not_advance_the_turn():
+    # decide_ai_ask() exists so a screen can announce the AI's request
+    # (highlight + audio cue) before it actually executes -- it must not
+    # itself move any cards or change whose turn it is.
+    game = _two_ai_game(seed=3)
+    asker = game.current_player_name
+    hand_before = list(game.players[asker].hand.cards)
+
+    target, rank = game.decide_ai_ask()
+
+    assert game.current_player_name == asker
+    assert game.players[asker].hand.cards == hand_before
+    assert game.players[asker].hand.has_rank(rank)  # a legal ask: a rank it actually holds
+    assert target in game.other_player_names(asker)
+
+
+def test_decide_ai_ask_then_ask_matches_take_ai_turn_for_an_identical_game():
+    # take_ai_turn() is just decide_ai_ask() + ask() glued together;
+    # splitting them for the screen's visible-request flow must not change
+    # the actual outcome for an identical game state.
+    game_direct = _two_ai_game(seed=11)
+    game_split = _two_ai_game(seed=11)
+
+    result_direct = game_direct.take_ai_turn()
+
+    asker = game_split.current_player_name
+    target, rank = game_split.decide_ai_ask()
+    result_split = game_split.ask(asker, target, rank)
+
+    assert (result_direct.asker, result_direct.target, result_direct.rank) == (
+        result_split.asker, result_split.target, result_split.rank,
+    )
+    assert result_direct.cards_transferred == result_split.cards_transferred

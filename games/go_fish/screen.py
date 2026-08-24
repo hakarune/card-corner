@@ -1,6 +1,8 @@
 """Go Fish Pygame screen: human (You) vs one AI opponent."""
 from __future__ import annotations
 
+import math
+
 import pygame
 
 from audio.manager import audio
@@ -9,12 +11,13 @@ from core.card import Rank
 from ui import theme
 from ui.pause import PauseMenu
 from ui.screen import Screen
+from ui.items import item_name
 from ui.widgets import (
     Button,
     Confetti,
     draw_card_back,
-    draw_card_face,
     draw_game_over_modal,
+    draw_item_card_face,
     draw_panel,
     draw_text,
     modal_button_rects,
@@ -25,6 +28,8 @@ from .game import GoFishGame
 AI_NAME = "Fox"
 HUMAN_NAME = "You"
 AI_TURN_DELAY = 0.9
+AI_NO_MATCH_RESOLVE_DELAY = 0.6  # beat after an ask with nothing to hand over
+HUMAN_ASK_RESOLVE_DELAY = 0.5  # symmetric beat before a human's own ask resolves
 DEAL_DURATION = 0.35
 DEAL_STAGGER = 0.05
 
@@ -37,9 +42,22 @@ class GoFishScreen(Screen):
         self.game = GoFishGame(
             [HUMAN_NAME, AI_NAME], ai_difficulties={AI_NAME: difficulty}, seed=None
         )
-        self.message = f"Ask {AI_NAME} for a card you'd like!"
+        self.message = f"Click a card to ask {AI_NAME} for it!"
         self._ai_timer = 0.0
         self._waiting_for_ai = False
+        # AI-asks-human "visible request" state: the AI's ask is decided and
+        # announced before it executes, so the human sees/hears the request
+        # first. If they hold a match, they click one to hand it over; if
+        # not, there's nothing to click and it auto-resolves after a beat.
+        self._pending_ai_ask: Rank | None = None
+        self._awaiting_handover = False
+        self._ai_resolve_timer = 0.0
+        # Human-asks-AI: a short symmetric beat between the click and the
+        # actual transfer, so this ask reads as a request too, not an
+        # instant silent flip.
+        self._pending_human_ask: Rank | None = None
+        self._waiting_for_human_resolve = False
+        self._human_ask_timer = 0.0
         self._confetti: Confetti | None = None
         self._end_buttons: list[Button] = []
         self._card_rects: list[tuple[pygame.Rect, Rank]] = []
@@ -65,47 +83,77 @@ class GoFishScreen(Screen):
             self._waiting_for_ai = True
             self._ai_timer = AI_TURN_DELAY
 
-    def _run_ai_turn(self) -> None:
-        result = self.game.take_ai_turn()
+    def _ai_decide(self) -> None:
+        """The AI turn timer has elapsed: decide (but don't yet execute) its
+        ask, announce it with a highlight + audible cue, and either wait for
+        the human to hand over a matching card or -- if they have none --
+        auto-resolve after a short beat.
+        """
+        target, rank = self.game.decide_ai_ask()
+        item = item_name(rank)
+        self.message = f"{AI_NAME} wants your {item}s! Click one to hand it over."
+        audio.play_sfx("ask")
+        self._pending_ai_ask = rank
+        self._waiting_for_ai = False
+        human_player = self.game.players[HUMAN_NAME]
+        if human_player.hand.has_rank(rank):
+            self._awaiting_handover = True
+        else:
+            self._ai_resolve_timer = AI_NO_MATCH_RESOLVE_DELAY
+
+    def _resolve_ai_ask(self) -> None:
+        rank = self._pending_ai_ask
+        self._pending_ai_ask = None
+        self._awaiting_handover = False
+        self._ai_resolve_timer = 0.0
+        result = self.game.ask(AI_NAME, HUMAN_NAME, rank)
+        item = item_name(rank)
         if result.cards_transferred:
-            self.message = f"{AI_NAME} asks You for {result.rank.name.title()}s... and gets {result.cards_transferred}!"
+            self.message = f"{AI_NAME} asks for {item} — got {result.cards_transferred}!"
             audio.play_sfx("match")
         elif result.asker_drew_matched:
-            self.message = f"{AI_NAME} asks You for {result.rank.name.title()}s, goes fish, and draws one!"
+            self.message = f"{AI_NAME} asks for {item} — Go Fish, but drew one!"
             audio.play_sfx("match")
         else:
-            self.message = f"{AI_NAME} asks You for {result.rank.name.title()}s... Go Fish!"
+            self.message = f"{AI_NAME} asks for {item} — Go Fish!"
             audio.play_sfx("miss")
-        self._waiting_for_ai = False
         self._maybe_start_ai_turn()
 
     def _human_ask(self, rank: Rank) -> None:
-        if self.game.game_over or self.game.is_ai_turn():
-            return
         audio.play_sfx("card_select")
+        item = item_name(rank)
+        self.message = f"Asking {AI_NAME} for {item}..."
+        self._pending_human_ask = rank
+        self._waiting_for_human_resolve = True
+        self._human_ask_timer = HUMAN_ASK_RESOLVE_DELAY
+
+    def _resolve_human_ask(self) -> None:
+        rank = self._pending_human_ask
+        self._pending_human_ask = None
+        self._waiting_for_human_resolve = False
         result = self.game.ask(HUMAN_NAME, AI_NAME, rank)
-        rank_name = rank.name.title()
+        item = item_name(rank)
         if result.cards_transferred:
-            self.message = f"{AI_NAME} hands over {result.cards_transferred} {rank_name}(s)! Go again."
+            self.message = f"Got {result.cards_transferred} {item}! Go again."
             audio.play_sfx("match")
         elif result.asker_drew_matched:
-            self.message = f"Go Fish! But you drew a {rank_name} yourself — go again!"
+            self.message = f"Go Fish! Drew a {item} — go again!"
             audio.play_sfx("match")
         else:
-            self.message = "Go Fish! Your turn is over."
+            self.message = "Go Fish! Turn over."
             audio.play_sfx("miss")
         self._maybe_start_ai_turn()
 
     def _on_game_over(self) -> None:
         if self.game.winner == HUMAN_NAME:
-            self.message = "You collected the most books! Great job!"
+            self.message = "You win! Most pairs!"
             self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
             audio.play_sfx("win")
         elif self.game.winner == AI_NAME:
-            self.message = f"{AI_NAME} collected the most books this time. Play again?"
+            self.message = f"{AI_NAME} wins this time!"
             audio.play_sfx("loss")
         else:
-            self.message = "It's a tie! Nicely played."
+            self.message = "It's a tie!"
         left_rect, right_rect = modal_button_rects(self.size)
         self._end_buttons = [
             Button(left_rect, "Play Again", self._restart, color=theme.SUCCESS, font_size=28),
@@ -121,17 +169,26 @@ class GoFishScreen(Screen):
             return
         for btn in self._end_buttons:
             btn.handle_event(event)
-        if self._waiting_for_ai or self.game.game_over or self._pause.visible:
+        if self.game.game_over or self._pause.visible:
             return
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # Cards can overlap slightly when a hand is large; check in
-            # reverse draw order so a click resolves to the visually
-            # topmost (later-drawn) card, not whichever one happens to be
-            # first in the list.
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return
+        # Cards can overlap slightly when a hand is large; check in reverse
+        # draw order so a click resolves to the visually topmost
+        # (later-drawn) card, not whichever one happens to be first in the
+        # list.
+        if self._awaiting_handover:
             for rect, rank in reversed(self._card_rects):
-                if rect.collidepoint(event.pos):
-                    self._human_ask(rank)
+                if rect.collidepoint(event.pos) and rank == self._pending_ai_ask:
+                    self._resolve_ai_ask()
                     return
+            return
+        if self._waiting_for_ai or self._ai_resolve_timer > 0 or self._waiting_for_human_resolve:
+            return
+        for rect, rank in reversed(self._card_rects):
+            if rect.collidepoint(event.pos):
+                self._human_ask(rank)
+                return
 
     def update(self, dt: float) -> None:
         if self._pause.visible:
@@ -140,7 +197,15 @@ class GoFishScreen(Screen):
         if self._waiting_for_ai:
             self._ai_timer -= dt
             if self._ai_timer <= 0:
-                self._run_ai_turn()
+                self._ai_decide()
+        elif self._ai_resolve_timer > 0:
+            self._ai_resolve_timer -= dt
+            if self._ai_resolve_timer <= 0:
+                self._resolve_ai_ask()
+        elif self._waiting_for_human_resolve:
+            self._human_ask_timer -= dt
+            if self._human_ask_timer <= 0:
+                self._resolve_human_ask()
         if self._confetti is not None:
             self._confetti.update(dt)
             if self._confetti.done():
@@ -163,7 +228,7 @@ class GoFishScreen(Screen):
         # AI area
         draw_text(surface, f"{AI_NAME}'s hand: {len(ai_player.hand)} cards", (30, 130), size=26, bold=True)
         self._draw_backs(surface, len(ai_player.hand), y=170)
-        draw_text(surface, f"Books: {len(ai_player.books)}", (30, 282), size=24, color=theme.TEXT_MUTED)
+        draw_text(surface, f"Pairs: {len(ai_player.books)}", (30, 282), size=24, color=theme.TEXT_MUTED)
 
         # Middle: pond + message
         draw_text(surface, f"Pond: {len(self.game.stock)} cards left", (self.size[0] // 2, 320), size=24, color=theme.TEXT_MUTED, center=True)
@@ -173,8 +238,9 @@ class GoFishScreen(Screen):
             draw_text(surface, self.message, msg_rect.center, size=26, center=True)
 
         # Human area
-        draw_text(surface, f"Your hand — click a card to ask for it! Books: {len(human_player.books)}", (30, 470), size=26, bold=True)
-        self._card_rects = self._draw_hand(surface, human_player.hand.cards, y=510)
+        draw_text(surface, f"Your hand   Pairs: {len(human_player.books)}", (30, 470), size=26, bold=True)
+        highlight_rank = self._pending_ai_ask if self._awaiting_handover else None
+        self._card_rects = self._draw_hand(surface, human_player.hand.cards, y=510, highlight_rank=highlight_rank)
 
         if self.game.game_over:
             draw_game_over_modal(surface, self.size, self.message)
@@ -194,7 +260,9 @@ class GoFishScreen(Screen):
             draw_card_back(surface, rect, card_theme)
             x += 26
 
-    def _draw_hand(self, surface: pygame.Surface, cards, y: int) -> list[tuple[pygame.Rect, Rank]]:
+    def _draw_hand(
+        self, surface: pygame.Surface, cards, y: int, highlight_rank: Rank | None = None
+    ) -> list[tuple[pygame.Rect, Rank]]:
         card_w = 90
         margin, row_gap, bottom_margin = 30, 14, 20
         # Space cards MIN_TOUCH_TARGET apart (not by however many happen to
@@ -217,7 +285,13 @@ class GoFishScreen(Screen):
             row, col = divmod(i, cards_per_row)
             rect = pygame.Rect(margin + col * gap, y + row * (card_h + row_gap), card_w, card_h)
             draw_rect = self._dealt_position(rect, i)
-            draw_card_face(surface, draw_rect, card.label, card.symbol, card.is_red, theme.CARD_THEMES["go_fish"])
+            draw_item_card_face(surface, draw_rect, card.rank, theme.CARD_THEMES["go_fish"])
+            if highlight_rank is not None and card.rank == highlight_rank:
+                # A pulsing accent border -- obviously different from an
+                # unselected card, not just a color tint (spec §5/§8's
+                # "clear visual feedback" standard applied here too).
+                pulse = 4 + int(3 * (0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 150)))
+                pygame.draw.rect(surface, theme.ACCENT, draw_rect.inflate(10, 10), width=pulse, border_radius=14)
             rects.append((rect, card.rank))  # click hit-testing always uses the final rect
         return rects
 

@@ -1,4 +1,10 @@
-"""Go Fish game engine: rules, turn order, and book (four-of-a-kind) scoring.
+"""Go Fish game engine: rules, turn order, and book (pair) scoring.
+
+A book is a *pair* (2 of the same rank), not the traditional 4-of-a-kind --
+a simplified variant for this age group, per playtest feedback. Since a
+standard deck holds 4 copies of every rank, each rank can yield up to 2
+books over the course of a game (26 books total across 13 ranks, using all
+52 cards).
 
 Supports 2-4 players. Any subset of players may be AI-controlled via
 `ai_difficulties`; the rest are assumed human-controlled and driven by the
@@ -16,7 +22,7 @@ from core.deck import build_standard_deck, deal_count, shuffled
 from core.player import Player
 
 MAX_TURNS = 400
-TOTAL_BOOKS = 13
+TOTAL_BOOKS = 26  # 13 ranks x up to 2 pairs each
 
 
 @dataclass
@@ -90,15 +96,43 @@ class GoFishGame:
     def is_ai_turn(self) -> bool:
         return self.players[self.current_player_name].is_ai
 
-    def take_ai_turn(self) -> AskResult:
+    def books_claimed_by_rank(self) -> dict[Rank, int]:
+        """How many books of each rank have been claimed so far, across all
+        players. Public information -- claimed books are laid face-up on
+        the table in real Go Fish, visible to everyone, not a peek at
+        anyone's hand.
+        """
+        counts: dict[Rank, int] = {}
+        for player in self.players.values():
+            for rank in player.books:
+                counts[rank] = counts.get(rank, 0) + 1
+        return counts
+
+    def decide_ai_ask(self) -> tuple[str, Rank]:
+        """What the current AI player's strategy would ask for, without
+        executing it. Splitting decide from execute lets a screen show a
+        visible, audible request and give the human a beat to react (or,
+        when asked, a card to click to hand over) before the transfer
+        actually happens, instead of the ask resolving silently and
+        instantly. take_ai_turn() below still does both steps at once for
+        callers (gauntlet/tests) that don't care about that distinction.
+        """
         name = self.current_player_name
         strategy = self.strategies.get(name)
         if strategy is None:
             raise ValueError(f"{name} is not AI-controlled")
         opponents = self.other_player_names(name)
-        target, rank = strategy.decide_ask(
-            self.players[name].hand, opponents, self.history, tuple(self._turn_failed_ranks)
+        return strategy.decide_ask(
+            self.players[name].hand,
+            opponents,
+            self.history,
+            tuple(self._turn_failed_ranks),
+            self.books_claimed_by_rank(),
         )
+
+    def take_ai_turn(self) -> AskResult:
+        name = self.current_player_name
+        target, rank = self.decide_ai_ask()
         return self.ask(name, target, rank)
 
     def ask(self, asker_name: str, target_name: str, rank: Rank) -> AskResult:
@@ -121,14 +155,11 @@ class GoFishGame:
         )
         self.history.append(AskRecord(asker_name, target_name, rank, len(transferred)))
 
+        hit = False
         if transferred:
             asker.hand.add_many(transferred)
             result.books_claimed_by_asker = self._claim_books(asker_name)
-            if asker.hand.is_empty() and self.stock:
-                self._draw(asker_name)
-                result.asker_drew = True
-                result.books_claimed_by_asker += self._claim_books(asker_name)
-            result.went_again = not asker.hand.is_empty()
+            hit = True
         else:
             self._turn_failed_ranks.append(rank)
             drawn = self._draw(asker_name)
@@ -137,7 +168,20 @@ class GoFishGame:
                 if drawn.rank == rank:
                     result.asker_drew_matched = True
                 result.books_claimed_by_asker = self._claim_books(asker_name)
-                result.went_again = result.asker_drew_matched and not asker.hand.is_empty()
+                hit = result.asker_drew_matched
+
+        if hit:
+            # A pair claims a book the instant it forms, which -- unlike
+            # the old 4-of-a-kind rule -- can now easily empty a hand of
+            # just 1-2 cards right on the hit (either path: a successful
+            # ask, or drawing the exact match after a miss). Either way,
+            # give a free redraw so a "go again" turn always has a card to
+            # act with, same as the original hit-branch behavior.
+            if asker.hand.is_empty() and self.stock:
+                self._draw(asker_name)
+                result.asker_drew = True
+                result.books_claimed_by_asker += self._claim_books(asker_name)
+            result.went_again = not asker.hand.is_empty()
 
         self.turn_count += 1
         if not result.went_again:
@@ -154,14 +198,25 @@ class GoFishGame:
         return card
 
     def _claim_books(self, name: str) -> list[Rank]:
+        """Claims every complete pair currently in this hand, via floor
+        division so a rank landing at count 3 or 4 (e.g. from the initial
+        deal) claims 1 or 2 books at once rather than requiring a full
+        4-of-a-kind, leaving at most one unpaired card of that rank behind.
+        """
         player = self.players[name]
-        claimed = []
+        claimed: list[Rank] = []
         for rank in list(player.hand.ranks_present()):
-            if player.hand.count_of_rank(rank) == 4:
-                player.hand.remove_all_of_rank(rank)
-                player.books.append(rank)
-                player.score += 1
-                claimed.append(rank)
+            count = player.hand.count_of_rank(rank)
+            pairs = count // 2
+            if pairs == 0:
+                continue
+            matched = player.hand.remove_all_of_rank(rank)
+            leftover = matched[: count % 2]
+            for c in leftover:
+                player.hand.add(c)
+            player.books.extend([rank] * pairs)
+            player.score += pairs
+            claimed.extend([rank] * pairs)
         return claimed
 
     def _advance_turn(self) -> None:

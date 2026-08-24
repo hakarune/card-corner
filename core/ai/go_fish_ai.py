@@ -35,6 +35,7 @@ class GoFishStrategy(Strategy):
         opponent_names: list[str],
         history: list[AskRecord],
         same_turn_failed_ranks: tuple[Rank, ...] = (),
+        books_claimed_by_rank: dict[Rank, int] | None = None,
     ) -> tuple[str, Rank]:
         """Return (target_name, rank) to ask for. `my_hand` must be non-empty.
 
@@ -46,19 +47,28 @@ class GoFishStrategy(Strategy):
         lever: EASY ignores it entirely (may repeat itself); MEDIUM only
         remembers its single most recent miss (a short attention span);
         HARD remembers every miss so far this turn.
+
+        `books_claimed_by_rank` is how many books of each rank have already
+        been claimed by *any* player (books are laid face-up on the table
+        in real Go Fish, so this is public information, not a peek at
+        anyone's hand) — see `_base_weight` for why this matters under the
+        pair-based book rule.
         """
         candidate_ranks = list(my_hand.ranks_present())
         if not candidate_ranks:
             raise ValueError("cannot ask with an empty hand")
         if not opponent_names:
             raise ValueError("no opponents to ask")
+        books_claimed_by_rank = books_claimed_by_rank or {}
 
         exclude = self._same_turn_exclusions(same_turn_failed_ranks)
         smarter = [r for r in candidate_ranks if r not in exclude]
         if smarter:
             candidate_ranks = smarter
 
-        rank_weights = self._rank_weights(my_hand, candidate_ranks, opponent_names, history)
+        rank_weights = self._rank_weights(
+            my_hand, candidate_ranks, opponent_names, history, books_claimed_by_rank
+        )
         rank = self.weighted_choice(candidate_ranks, rank_weights)
 
         opponent_weights = self._opponent_weights(opponent_names, rank, history)
@@ -78,30 +88,37 @@ class GoFishStrategy(Strategy):
         ranks: list[Rank],
         opponent_names: list[str],
         history: list[AskRecord],
+        books_claimed_by_rank: dict[Rank, int],
     ) -> list[float]:
         weights = []
         for rank in ranks:
             count = hand.count_of_rank(rank)
-            weights.append(self._base_weight(count) * self._best_opponent_multiplier(rank, opponent_names, history))
+            claimed = books_claimed_by_rank.get(rank, 0)
+            weights.append(
+                self._base_weight(count, claimed) * self._best_opponent_multiplier(rank, opponent_names, history)
+            )
         return weights
 
-    def _base_weight(self, count: int) -> float:
-        """Weight a candidate rank by how many copies are *not* already in
-        this hand (4 - count). This is deliberately the opposite of the
-        intuitive "go for the rank you're closest to completing a book
-        with": since a player ends up asking about every rank they hold at
-        some point regardless of order (nothing stops them asking about a
-        different rank next turn), asking order alone doesn't change how
-        many books a full game nets — what it *does* change is how often
-        an ask actually hits (letting the asker go again vs. losing the
-        turn). More copies still unseen elsewhere (opponents' hands + the
-        stock combined) means a higher chance an opponent is holding at
-        least one, i.e. a higher hit rate — so a rank you hold only 1 of
-        (3 unseen) is a *better* bet than one you hold 3 of (1 unseen).
+    def _base_weight(self, count: int, books_claimed: int) -> float:
+        """Weight a candidate rank by how many copies are still unseen:
+        neither in this hand nor already paired off into a claimed book by
+        anyone (4 - count - 2*books_claimed). More copies still out there
+        (in an opponent's hand or the stock) means a higher chance an
+        opponent is holding at least one, i.e. a higher hit rate.
+
+        Under the pair-based book rule, a rank you're holding always has
+        count == 1 in practice (2 auto-claims the instant it forms, so a
+        hand can never sit on 2+ of a rank) -- so count alone can't tell
+        candidate ranks apart anymore, unlike the old 4-of-a-kind rule
+        where it was the main signal. `books_claimed` recovers a real
+        signal: once a rank's first book has been claimed (by anyone --
+        books are laid face-up on the table, this is public), only 2
+        copies of that rank remain in circulation instead of 4, so it's a
+        meaningfully worse bet than a rank nobody's touched yet.
         """
         if self.difficulty is Difficulty.EASY:
             return 1.0
-        remaining_unseen = 4 - count
+        remaining_unseen = max(0, 4 - count - 2 * books_claimed)
         if self.difficulty is Difficulty.MEDIUM:
             return 1.0 + remaining_unseen
         return 1.0 + remaining_unseen**2  # HARD leans into it harder

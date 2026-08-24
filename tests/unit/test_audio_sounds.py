@@ -38,7 +38,7 @@ def test_unknown_sound_name_raises_key_error():
 
 def test_expected_sfx_names_are_all_present():
     # Spec §3 minimum SFX list, mapped to the names screens will use.
-    expected = {"card_select", "card_move", "match", "miss", "win", "loss", "button", "music_loop"}
+    expected = {"card_select", "card_move", "match", "miss", "win", "loss", "button", "ask", "music_loop"}
     assert expected == set(BUILDERS.keys())
 
 

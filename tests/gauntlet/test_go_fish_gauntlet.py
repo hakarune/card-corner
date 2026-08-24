@@ -80,24 +80,29 @@ def test_go_fish_hard_beats_easy_more_often_but_is_still_beatable():
 
 
 def test_go_fish_medium_beats_easy_on_average():
-    # MEDIUM's real edge over EASY comes from GoFishStrategy._base_weight:
-    # preferring to ask about ranks with *more* copies still unseen
-    # elsewhere (a higher hit rate), plus never repeating a same-turn
-    # certain miss. Both effects are real and measurable here. HARD vs
-    # MEDIUM specifically is *not* asserted: they share the same qualitative
-    # heuristics, just at different exponents/discounts, and empirically
-    # (checked across several independent seed ranges, including with
-    # deliberately extreme tuning) that magnitude difference doesn't produce
-    # a reliable separation in a 2-player game -- both clearly and
-    # consistently beat EASY, which is what the spec actually requires.
+    # MEDIUM's edge over EASY comes from GoFishStrategy._base_weight
+    # (preferring ranks with more copies still unseen -- including, since
+    # the pair-based book rule, ranks with no books claimed yet by anyone)
+    # plus never repeating a same-turn certain miss. Both effects are real,
+    # but under the pair rule a held rank's in-hand count is always 1 (2
+    # auto-claims), so the count-based half of that signal is gone and only
+    # the "books already claimed" and same-turn-memory halves remain -- a
+    # thinner edge (~0.51-0.52 measured across several independent seed
+    # ranges) than the pre-pairs-rule version had. A bigger sample than
+    # WINRATE_TRIALS is needed to detect it reliably rather than getting
+    # lost in noise. HARD vs MEDIUM specifically is still not asserted (see
+    # test_go_fish_hard_beats_easy_more_often_but_is_still_beatable's
+    # sibling reasoning) -- both clearly and consistently beat EASY, which
+    # is what the spec actually requires.
+    trials = 6000
     wins = 0
-    for seed in range(WINRATE_TRIALS):
+    for seed in range(trials):
         game = simulate(seed, Difficulty.MEDIUM, Difficulty.EASY)
         if game.winner == "A":
             wins += 1
-    medium_vs_easy = wins / WINRATE_TRIALS
-    write_report("go_fish_difficulty_ordering", {"medium_vs_easy_winrate": medium_vs_easy})
-    assert medium_vs_easy > 0.5
+    medium_vs_easy = wins / trials
+    write_report("go_fish_difficulty_ordering", {"medium_vs_easy_winrate": medium_vs_easy, "trials": trials})
+    assert medium_vs_easy > 0.505
 
 
 def test_go_fish_hard_beats_easy_with_3_players_too():

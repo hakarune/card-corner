@@ -97,6 +97,32 @@ def test_hard_ai_favors_ranks_with_more_copies_still_unseen():
     assert counts[Rank.KING] > counts[Rank.TWO] > 0
 
 
+def test_hard_ai_favors_ranks_with_no_books_claimed_yet_over_ones():
+    # Under the pair-based book rule, a held rank's count in-hand is always
+    # 1 in real play (2 auto-claims), so it can't tell ranks apart anymore
+    # -- books_claimed_by_rank is the new signal: a rank with a book
+    # already claimed by *anyone* has only 2 copies left in circulation
+    # instead of 4, a meaningfully worse bet.
+    hand = hand_of(Rank.KING, Rank.TWO)
+    books_claimed = {Rank.TWO: 1}  # someone already claimed one book of TWOs
+    counts = {Rank.KING: 0, Rank.TWO: 0}
+    trials = 500
+    for seed in range(trials):
+        strategy = GoFishStrategy(Difficulty.HARD, random.Random(seed))
+        _, rank = strategy.decide_ask(hand, ["Bob"], [], books_claimed_by_rank=books_claimed)
+        counts[rank] += 1
+    assert counts[Rank.KING] > counts[Rank.TWO] > 0
+
+
+def test_books_claimed_by_rank_defaults_to_no_signal_when_omitted():
+    # Backward-compatible default: omitting the new parameter entirely
+    # must not raise and must behave as if no books had been claimed.
+    hand = hand_of(Rank.KING)
+    strategy = GoFishStrategy(Difficulty.HARD, random.Random(1))
+    target, rank = strategy.decide_ask(hand, ["Bob"], [])
+    assert rank == Rank.KING
+
+
 def test_easy_ai_may_repeat_a_same_turn_certain_miss():
     hand = hand_of(Rank.SEVEN)  # only one candidate rank at all
     seen_repeats = False

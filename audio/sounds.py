@@ -58,6 +58,14 @@ def _build_button() -> pygame.mixer.Sound:
     return synth.tone(700, 0.04, synth.WAVE_SINE, volume=0.45)
 
 
+def _build_ask() -> pygame.mixer.Sound:
+    # A bright two-note "question for you" rising cue -- distinct from
+    # card_select's single blip and card_move's descending sweep, so a
+    # request (someone asking for a card) is audibly different from just
+    # something moving.
+    return synth.sequence([_n("E5", 0.07), _n("A5", 0.1)], synth.WAVE_TRIANGLE, volume=0.55)
+
+
 def _build_music_loop() -> pygame.mixer.Sound:
     melody = [
         _n("C5", 0.3), _n("E5", 0.3), _n("G5", 0.3), _n("E5", 0.3),
@@ -75,6 +83,7 @@ BUILDERS: dict[str, Callable[[], pygame.mixer.Sound]] = {
     "win": _build_win,
     "loss": _build_loss,
     "button": _build_button,
+    "ask": _build_ask,
     "music_loop": _build_music_loop,
 }
 
