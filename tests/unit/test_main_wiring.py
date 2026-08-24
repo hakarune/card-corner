@@ -68,6 +68,26 @@ def test_memory_setup_has_a_play_alone_option_that_skips_ai():
     assert game_screen.difficulty is None
 
 
+def test_memory_setup_header_mentions_playing_alone():
+    # Auditor #1 finding: the shared header always said "choose a friend to
+    # play with", contradicting the "Play Alone" button shown right below
+    # it for Memory.
+    launcher = make_launcher(WINDOW_SIZE)
+    btn = next(b for b, lbl, _ in launcher._icons if lbl == "Memory")
+    click(launcher, btn.rect.center)
+    diff_screen = launcher.next_screen()
+    assert "alone" in diff_screen.header_text.lower()
+
+
+def test_other_games_setup_headers_do_not_mention_playing_alone():
+    for label in ("Go Fish", "Old Maid"):
+        launcher = make_launcher(WINDOW_SIZE)
+        btn = next(b for b, lbl, _ in launcher._icons if lbl == label)
+        click(launcher, btn.rect.center)
+        diff_screen = launcher.next_screen()
+        assert "alone" not in diff_screen.header_text.lower()
+
+
 def test_other_games_setup_screens_have_no_play_alone_option():
     for label in ("Go Fish", "Old Maid"):
         launcher = make_launcher(WINDOW_SIZE)

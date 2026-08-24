@@ -232,6 +232,15 @@ class DifficultySelectScreen(Screen):
     ):
         super().__init__(size)
         self.game_label = game_label
+        self.has_solo_option = solo_pick is not None
+        # Auditor #1 finding: the header used to always say "choose a
+        # friend to play with", contradicting the "Play Alone" button
+        # sitting right below it for Memory.
+        self.header_text = (
+            f"{game_label}: play with a friend, or alone!"
+            if self.has_solo_option
+            else f"{game_label}: choose a friend to play with"
+        )
         self.buttons: list[Button] = []
 
         options: list[tuple[str, Callable[[], "Screen"], object]] = []
@@ -267,7 +276,7 @@ class DifficultySelectScreen(Screen):
         surface.fill(theme.BACKGROUND)
         draw_text(
             surface,
-            f"{self.game_label}: choose a friend to play with",
+            self.header_text,
             (self.size[0] // 2, 140),
             size=40,
             bold=True,
