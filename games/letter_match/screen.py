@@ -68,8 +68,8 @@ class LetterMatchScreen(Screen):
         self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
         cx = self.size[0] // 2
         self._end_buttons = [
-            Button((cx - 220, 645, 200, 60), "Play Again", self._restart, color=theme.SUCCESS, font_size=26),
-            Button((cx + 20, 645, 200, 60), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=26),
+            Button((cx - 220, 622, 200, theme.MIN_TOUCH_TARGET), "Play Again", self._restart, color=theme.SUCCESS, font_size=26),
+            Button((cx + 20, 622, 200, theme.MIN_TOUCH_TARGET), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=26),
         ]
 
     def _restart(self) -> None:

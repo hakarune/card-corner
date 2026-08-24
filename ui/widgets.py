@@ -94,6 +94,28 @@ def draw_face_down_tile(surface: pygame.Surface, rect: pygame.Rect, color) -> No
     surface.blit(text_surf, text_surf.get_rect(center=rect.center))
 
 
+def draw_flip(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    progress: float,
+    draw_back: Callable[[pygame.Surface, pygame.Rect], None],
+    draw_face: Callable[[pygame.Surface, pygame.Rect], None],
+) -> None:
+    """A simple horizontal-squeeze card flip: `progress` 0->1 shrinks the
+    card to an edge-on sliver (showing `draw_back`) then grows it back out
+    (showing `draw_face`) — a cheap, readable stand-in for a real 3D flip.
+    """
+    progress = max(0.0, min(1.0, progress))
+    scale = abs(1 - 2 * progress)
+    scaled = rect.copy()
+    scaled.width = max(4, int(rect.width * scale))
+    scaled.centerx = rect.centerx
+    if progress < 0.5:
+        draw_back(surface, scaled)
+    else:
+        draw_face(surface, scaled)
+
+
 def draw_panel(surface: pygame.Surface, rect: pygame.Rect, color=theme.PANEL) -> None:
     pygame.draw.rect(surface, color, rect, border_radius=20)
     pygame.draw.rect(surface, theme.TEXT_DARK, rect, width=3, border_radius=20)

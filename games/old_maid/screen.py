@@ -15,6 +15,8 @@ from .game import OldMaidGame
 AI_NAME = "Fox"
 HUMAN_NAME = "You"
 AI_TURN_DELAY = 0.9
+DEAL_DURATION = 0.35
+DEAL_STAGGER = 0.05
 
 
 class OldMaidScreen(Screen):
@@ -31,6 +33,7 @@ class OldMaidScreen(Screen):
         self._confetti: Confetti | None = None
         self._end_buttons: list[Button] = []
         self._ai_hand_rect: pygame.Rect | None = None
+        self._deal_elapsed = 0.0
         self._maybe_start_ai_turn()
 
     def _maybe_start_ai_turn(self) -> None:
@@ -71,8 +74,8 @@ class OldMaidScreen(Screen):
             self.message = "Good game!"
         cx = self.size[0] // 2
         self._end_buttons = [
-            Button((cx - 220, 560, 200, 70), "Play Again", self._restart, color=theme.SUCCESS, font_size=28),
-            Button((cx + 20, 560, 200, 70), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=28),
+            Button((cx - 220, 555, 200, theme.MIN_TOUCH_TARGET), "Play Again", self._restart, color=theme.SUCCESS, font_size=28),
+            Button((cx + 20, 555, 200, theme.MIN_TOUCH_TARGET), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=28),
         ]
 
     def _restart(self) -> None:
@@ -89,6 +92,7 @@ class OldMaidScreen(Screen):
                     self._human_draw()
 
     def update(self, dt: float) -> None:
+        self._deal_elapsed += dt
         if self._waiting_for_ai:
             self._ai_timer -= dt
             if self._ai_timer <= 0:
@@ -152,7 +156,22 @@ class OldMaidScreen(Screen):
         card_w, card_h = 90, 130
         gap = min(70, max(20, (self.size[0] - 60 - card_w) // max(len(cards), 1)))
         x = 30
-        for card in cards:
+        for i, card in enumerate(cards):
             rect = pygame.Rect(x, y, card_w, card_h)
-            draw_card_face(surface, rect, card.label, card.symbol, card.is_red)
+            draw_card_face(surface, self._dealt_position(rect, i), card.label, card.symbol, card.is_red)
             x += gap
+
+    def _dealt_position(self, final_rect: pygame.Rect, index: int) -> pygame.Rect:
+        """A staggered slide-up-into-place deal animation for the initial
+        hand; a no-op past its short window (see the identical helper in
+        games/go_fish/screen.py for the full rationale).
+        """
+        local_t = self._deal_elapsed - index * DEAL_STAGGER
+        if local_t >= DEAL_DURATION:
+            return final_rect
+        progress = max(0.0, min(1.0, local_t / DEAL_DURATION))
+        eased = 1 - (1 - progress) ** 3
+        start_y = self.size[1] + 40
+        animated = final_rect.copy()
+        animated.y = int(start_y + (final_rect.y - start_y) * eased)
+        return animated

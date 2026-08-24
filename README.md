@@ -49,7 +49,7 @@ device required — this is also how CI runs it (see
 core/            Shared card/deck/player primitives and per-game AI strategies
 games/           Game-specific rules and screens (go_fish, old_maid, memory, letter_match)
 ui/              Shared kid-friendly widgets, theme, and the main menu launcher
-assets/          Procedurally generated art (generator scripts, not hand-drawn files)
+assets/          ATTRIBUTIONS.md — all art is drawn procedurally at runtime by ui/, no static files
 tests/unit/      Unit tests for core + per-game rule logic
 tests/gauntlet/  Headless AI-vs-AI self-play simulation harness
 ```

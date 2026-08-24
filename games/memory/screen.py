@@ -15,7 +15,15 @@ import pygame
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from ui import theme
 from ui.screen import Screen
-from ui.widgets import Button, Confetti, draw_card_face, draw_face_down_tile, draw_panel, draw_text
+from ui.widgets import (
+    Button,
+    Confetti,
+    draw_card_face,
+    draw_face_down_tile,
+    draw_flip,
+    draw_panel,
+    draw_text,
+)
 
 from .game import MemoryGame
 
@@ -26,6 +34,7 @@ REVEAL_GAP = 0.7
 RESOLVE_PAUSE = 0.9
 NUM_PAIRS = 6
 GRID_COLS = 4
+FLIP_DURATION = 0.28
 
 
 class MemoryScreen(Screen):
@@ -45,6 +54,8 @@ class MemoryScreen(Screen):
         self._confetti: Confetti | None = None
         self._end_buttons: list[Button] = []
         self._tile_rects: list[tuple[int, pygame.Rect]] = []
+        self._flip_anim: dict[int, float] = {}
+        self._prev_shown: set[int] = set()
         self._maybe_start_ai_turn()
 
     # -- timing helper ----------------------------------------------------
@@ -125,8 +136,8 @@ class MemoryScreen(Screen):
             self.message = f"It's a tie, {human_score} to {ai_score}!"
         cx = self.size[0] // 2
         self._end_buttons = [
-            Button((cx - 220, 645, 200, 60), "Play Again", self._restart, color=theme.SUCCESS, font_size=26),
-            Button((cx + 20, 645, 200, 60), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=26),
+            Button((cx - 220, 622, 200, theme.MIN_TOUCH_TARGET), "Play Again", self._restart, color=theme.SUCCESS, font_size=26),
+            Button((cx + 20, 622, 200, theme.MIN_TOUCH_TARGET), "Menu", lambda: self.go_to(self.on_menu()), color=theme.TEXT_MUTED, font_size=26),
         ]
 
     def _restart(self) -> None:
@@ -156,6 +167,17 @@ class MemoryScreen(Screen):
             self._confetti.update(dt)
             if self._confetti.done():
                 self._confetti = None
+
+        # Start a flip animation for any tile whose shown/hidden state just
+        # changed, and age out any animations already in progress.
+        shown_now = self._visible | self.game.matched
+        for pos in shown_now.symmetric_difference(self._prev_shown):
+            self._flip_anim[pos] = 0.0
+        self._prev_shown = shown_now
+        for pos in list(self._flip_anim):
+            self._flip_anim[pos] += dt
+            if self._flip_anim[pos] >= FLIP_DURATION:
+                del self._flip_anim[pos]
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(theme.BACKGROUND)
@@ -201,10 +223,24 @@ class MemoryScreen(Screen):
             rect = pygame.Rect(
                 start_x + col * (tile_w + gap), y_start + row * (tile_h + gap), tile_w, tile_h
             )
-            if pos in self._visible or pos in self.game.matched:
-                card = self.game.board[pos]
-                draw_card_face(surface, rect, card.label, card.symbol, card.is_red)
+            card = self.game.board[pos]
+            face_up = pos in self._visible or pos in self.game.matched
+
+            def render_back(surf, r) -> None:
+                draw_face_down_tile(surf, r, theme.GAME_COLORS["memory"])
+
+            def render_face(surf, r, card=card) -> None:
+                draw_card_face(surf, r, card.label, card.symbol, card.is_red)
+
+            if pos in self._flip_anim:
+                progress = self._flip_anim[pos] / FLIP_DURATION
+                # Reveals flip back->face; hides flip face->back — pick the
+                # order so the second half always lands on the true state.
+                first, second = (render_back, render_face) if face_up else (render_face, render_back)
+                draw_flip(surface, rect, progress, first, second)
+            elif face_up:
+                render_face(surface, rect)
             else:
-                draw_face_down_tile(surface, rect, theme.GAME_COLORS["memory"])
+                render_back(surface, rect)
             rects.append((pos, rect))
         return rects

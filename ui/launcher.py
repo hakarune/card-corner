@@ -160,7 +160,7 @@ class DifficultySelectScreen(Screen):
                 Button(rect, DIFFICULTY_LABELS[difficulty], make_click(), color=game_color, font_size=36)
             )
 
-        back_rect = (40, size[1] - 100, 200, 64)
+        back_rect = (40, size[1] - 100, 200, theme.MIN_TOUCH_TARGET)
         self.buttons.append(
             Button(back_rect, "Back", lambda: self.go_to(on_back()), color=theme.TEXT_MUTED, font_size=28)
         )
