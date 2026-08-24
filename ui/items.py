@@ -150,3 +150,16 @@ RANK_ITEMS: dict[Rank, tuple[str, Callable]] = {
 
 def item_name(rank: Rank) -> str:
     return RANK_ITEMS[rank][0]
+
+
+_IRREGULAR_PLURALS = {"Fish": "Fish"}
+
+
+def item_name_plural(rank: Rank) -> str:
+    """The plural form of item_name(rank), e.g. for "wants your Birds!"
+    prompts. Every item name pluralizes with a plain "s" except "Fish",
+    which is already plural (an Auditor #1 finding: naive `f"{name}s"`
+    produced "Fishs").
+    """
+    name = item_name(rank)
+    return _IRREGULAR_PLURALS.get(name, name + "s")

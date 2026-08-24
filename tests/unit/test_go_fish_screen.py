@@ -15,6 +15,7 @@ from core.ai.base import Difficulty
 from core.card import Card, Rank, Suit
 from games.go_fish.screen import GoFishScreen
 from ui import theme
+from ui.items import item_name_plural
 
 
 def make_screen_with_hand(surface, ranks: list[Rank]) -> GoFishScreen:
@@ -119,6 +120,25 @@ def test_ai_ask_with_no_match_auto_resolves_after_a_beat_with_nothing_to_click(s
     screen.update(screen._ai_resolve_timer + 0.01)
     assert screen._ai_resolve_timer == 0.0
     assert screen._pending_ai_ask is None
+
+
+def test_ai_ask_message_pluralizes_fish_correctly(surface):
+    # Auditor #1 finding: naive f"{item}s" produced "Fishs" for Rank.SIX --
+    # every other item name pluralizes fine with a plain "s", "Fish" is the
+    # one irregular case.
+    screen = make_screen_with_hand(surface, [Rank.SIX])
+    screen.game.players["Fox"].hand.cards = [Card(suit=Suit.HEARTS, rank=Rank.SIX)]
+    screen.game.turn_index = screen.game.order.index("Fox")
+
+    screen._ai_decide()
+    assert "Fishs" not in screen.message
+    assert "Fish" in screen.message
+
+
+def test_item_name_plural_has_no_naive_double_s_for_any_rank():
+    for rank in Rank:
+        plural = item_name_plural(rank)
+        assert not plural.endswith("ss"), f"{rank} pluralized oddly: {plural!r}"
 
 
 def test_human_ask_has_a_symmetric_delay_before_it_actually_transfers_cards(surface):

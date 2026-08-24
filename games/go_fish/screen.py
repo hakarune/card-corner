@@ -11,7 +11,7 @@ from core.card import Rank
 from ui import theme
 from ui.pause import PauseMenu
 from ui.screen import Screen
-from ui.items import item_name
+from ui.items import item_name, item_name_plural
 from ui.widgets import (
     Button,
     Confetti,
@@ -90,8 +90,8 @@ class GoFishScreen(Screen):
         auto-resolve after a short beat.
         """
         target, rank = self.game.decide_ai_ask()
-        item = item_name(rank)
-        self.message = f"{AI_NAME} wants your {item}s! Click one to hand it over."
+        item_plural = item_name_plural(rank)
+        self.message = f"{AI_NAME} wants your {item_plural}! Click one to hand it over."
         audio.play_sfx("ask")
         self._pending_ai_ask = rank
         self._waiting_for_ai = False
