@@ -6,6 +6,7 @@ import pygame
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from core.card import Rank
 from ui import theme
+from ui.pause import PauseMenu
 from ui.screen import Screen
 from ui.widgets import (
     Button,
@@ -42,7 +43,16 @@ class GoFishScreen(Screen):
         self._end_buttons: list[Button] = []
         self._card_rects: list[tuple[pygame.Rect, Rank]] = []
         self._deal_elapsed = 0.0
+        self._pause = PauseMenu(
+            size,
+            on_restart=self._restart,
+            on_quit_to_menu=lambda: self.go_to(self.on_menu()),
+            on_quit_app=self._quit_app,
+        )
         self._maybe_start_ai_turn()
+
+    def _quit_app(self) -> None:
+        self.quit_requested = True
 
     # -- game flow ------------------------------------------------------
     def _maybe_start_ai_turn(self) -> None:
@@ -96,9 +106,11 @@ class GoFishScreen(Screen):
 
     # -- Screen interface -------------------------------------------------
     def handle_event(self, event: pygame.event.Event) -> None:
+        if not self.game.game_over and self._pause.handle_event(event):
+            return
         for btn in self._end_buttons:
             btn.handle_event(event)
-        if self._waiting_for_ai or self.game.game_over:
+        if self._waiting_for_ai or self.game.game_over or self._pause.visible:
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # Cards can overlap slightly when a hand is large; check in
@@ -111,6 +123,8 @@ class GoFishScreen(Screen):
                     return
 
     def update(self, dt: float) -> None:
+        if self._pause.visible:
+            return
         self._deal_elapsed += dt
         if self._waiting_for_ai:
             self._ai_timer -= dt
@@ -155,6 +169,8 @@ class GoFishScreen(Screen):
             draw_game_over_modal(surface, self.size, self.message)
             for btn in self._end_buttons:
                 btn.draw(surface)
+        else:
+            self._pause.draw(surface)
         if self._confetti is not None:
             self._confetti.draw(surface)
 

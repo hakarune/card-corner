@@ -9,6 +9,7 @@ from typing import Callable, Optional
 import pygame
 
 from ui import theme
+from ui.pause import PauseMenu
 from ui.screen import Screen
 from ui.widgets import (
     Button,
@@ -39,6 +40,15 @@ class LetterMatchScreen(Screen):
         self._confetti: Confetti | None = None
         self._end_buttons: list[Button] = []
         self._tile_rects: list[tuple[int, pygame.Rect]] = []
+        self._pause = PauseMenu(
+            size,
+            on_restart=self._restart,
+            on_quit_to_menu=lambda: self.go_to(self.on_menu()),
+            on_quit_app=self._quit_app,
+        )
+
+    def _quit_app(self) -> None:
+        self.quit_requested = True
 
     def _schedule(self, delay: float, callback: Callable[[], None]) -> None:
         self._timer = delay
@@ -84,9 +94,11 @@ class LetterMatchScreen(Screen):
         self.go_to(LetterMatchScreen(self.size, self.on_menu))
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        if not self.game.game_over and self._pause.handle_event(event):
+            return
         for btn in self._end_buttons:
             btn.handle_event(event)
-        if self._locked or self.game.game_over:
+        if self._locked or self.game.game_over or self._pause.visible:
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for pos, rect in self._tile_rects:
@@ -95,6 +107,8 @@ class LetterMatchScreen(Screen):
                     return
 
     def update(self, dt: float) -> None:
+        if self._pause.visible:
+            return
         if not self.game.game_over:
             self._elapsed += dt
         if self._pending_callback is not None:
@@ -122,6 +136,8 @@ class LetterMatchScreen(Screen):
 
         if self.game.game_over:
             draw_game_over_modal(surface, self.size, self.message)
+        else:
+            self._pause.draw(surface)
         for btn in self._end_buttons:
             btn.draw(surface)
         if self._confetti is not None:

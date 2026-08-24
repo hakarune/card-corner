@@ -7,6 +7,7 @@ import pygame
 
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from ui import theme
+from ui.pause import PauseMenu
 from ui.screen import Screen
 from ui.widgets import (
     Button,
@@ -43,7 +44,16 @@ class OldMaidScreen(Screen):
         self._end_buttons: list[Button] = []
         self._ai_hand_rect: pygame.Rect | None = None
         self._deal_elapsed = 0.0
+        self._pause = PauseMenu(
+            size,
+            on_restart=self._restart,
+            on_quit_to_menu=lambda: self.go_to(self.on_menu()),
+            on_quit_app=self._quit_app,
+        )
         self._maybe_start_ai_turn()
+
+    def _quit_app(self) -> None:
+        self.quit_requested = True
 
     def _maybe_start_ai_turn(self) -> None:
         if self.game.game_over:
@@ -74,10 +84,15 @@ class OldMaidScreen(Screen):
         self._maybe_start_ai_turn()
 
     def _on_game_over(self) -> None:
+        # Lead with an unambiguous WIN/LOSE word first -- a playtest with a
+        # real 5-year-old found the previous wording ("You're holding the
+        # Old Maid! Good game...") easy to misread as a win. Keep the loss
+        # framing gentle (no "sorry", no sad tone), per spec, but the verdict
+        # itself must be unmistakable.
         if self.game.loser == HUMAN_NAME:
-            self.message = "You're holding the Old Maid! Good game — want a rematch?"
+            self.message = f"You lost this round — {AI_NAME} got away with it! Try again?"
         elif self.game.loser == AI_NAME:
-            self.message = f"{AI_NAME} got stuck with the Old Maid! You win!"
+            self.message = f"You win! {AI_NAME} got stuck with the Old Maid!"
             self._confetti = Confetti(pygame.Rect(0, 0, *self.size))
         else:
             self.message = "Good game!"
@@ -91,9 +106,11 @@ class OldMaidScreen(Screen):
         self.go_to(OldMaidScreen(self.size, self.difficulty, self.on_menu))
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        if not self.game.game_over and self._pause.handle_event(event):
+            return
         for btn in self._end_buttons:
             btn.handle_event(event)
-        if self._waiting_for_ai or self.game.game_over:
+        if self._waiting_for_ai or self.game.game_over or self._pause.visible:
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self._ai_hand_rect is not None and self._ai_hand_rect.collidepoint(event.pos):
@@ -101,6 +118,8 @@ class OldMaidScreen(Screen):
                     self._human_draw()
 
     def update(self, dt: float) -> None:
+        if self._pause.visible:
+            return
         self._deal_elapsed += dt
         if self._waiting_for_ai:
             self._ai_timer -= dt
@@ -127,9 +146,7 @@ class OldMaidScreen(Screen):
 
         active = not self.game.game_over and not self.game.is_ai_turn() and not ai_player.hand.is_empty()
         draw_text(surface, f"{AI_NAME}'s hand: {len(ai_player.hand)} cards", (30, 130), size=26, bold=True)
-        self._ai_hand_rect = self._draw_backs(
-            surface, len(ai_player.hand), y=170, highlight=active
-        )
+        self._ai_hand_rect = self._draw_backs(surface, len(ai_player.hand), y=170, highlight=active)
         draw_text(surface, f"Pairs found: {len(ai_player.books)}", (30, 282), size=24, color=theme.TEXT_MUTED)
 
         if not self.game.game_over:
@@ -144,24 +161,34 @@ class OldMaidScreen(Screen):
             draw_game_over_modal(surface, self.size, self.message)
             for btn in self._end_buttons:
                 btn.draw(surface)
+        else:
+            self._pause.draw(surface)
         if self._confetti is not None:
             self._confetti.draw(surface)
 
     def _draw_backs(self, surface: pygame.Surface, count: int, y: int, highlight: bool) -> pygame.Rect | None:
+        """The whole hand is one blind-draw target (which specific card you
+        click doesn't change the outcome -- the draw is genuinely random,
+        as in real Old Maid), but a playtest with a real 5-year-old found
+        the cards packed so tightly they read as one solid blob rather than
+        a hand of N separate cards. Space them as generously as the row
+        still allows (up to 50px of each card visible, never less than 30px)
+        so the hand visually reads as distinct cards.
+        """
         if count == 0:
             return None
         card_w, card_h = 70, 100
-        x = 30
-        first_rect = None
+        margin = 30
+        available_width = self.size[0] - 2 * margin
+        gap = min(50, max(30, (available_width - card_w) // max(count, 1)))
+        x = margin
         for i in range(count):
             rect = pygame.Rect(x, y, card_w, card_h)
             draw_card_back(surface, rect)
             if highlight:
                 pygame.draw.rect(surface, theme.ACCENT, rect, width=4, border_radius=12)
-            if first_rect is None:
-                first_rect = rect
-            x += 26
-        return pygame.Rect(30, y, x - 30 + card_w - 26, card_h)
+            x += gap
+        return pygame.Rect(margin, y, x - margin + card_w - gap, card_h)
 
     def _draw_hand(self, surface: pygame.Surface, cards, y: int) -> None:
         card_w, card_h = 90, 130

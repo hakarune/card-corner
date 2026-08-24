@@ -9,7 +9,7 @@ from typing import Callable
 import pygame
 
 from core.ai.base import Difficulty, DIFFICULTY_LABELS
-from . import theme
+from . import settings, theme
 from .screen import Screen
 from .widgets import Button, draw_text
 
@@ -99,12 +99,31 @@ class LauncherScreen(Screen):
             self.buttons.append(btn)
             self._icons.append((btn, label, icon_fn))
 
+        # Top-right settings icons: visible, always-available toggles for
+        # fullscreen and mute -- no keyboard shortcut a 5-year-old wouldn't
+        # know about.
+        icon_size = theme.MIN_TOUCH_TARGET
+        self.fullscreen_rect = pygame.Rect(size[0] - icon_size - 24, 24, icon_size, icon_size)
+        self.mute_rect = pygame.Rect(size[0] - 2 * icon_size - 40, 24, icon_size, icon_size)
+
+    def _toggle_fullscreen(self) -> None:
+        settings.set("fullscreen", not settings.get("fullscreen"))
+
+    def _toggle_mute(self) -> None:
+        settings.set("muted", not settings.get("muted"))
+
     def handle_event(self, event: pygame.event.Event) -> None:
         for btn in self.buttons:
             btn.handle_event(event)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.fullscreen_rect.collidepoint(event.pos):
+                self._toggle_fullscreen()
+            elif self.mute_rect.collidepoint(event.pos):
+                self._toggle_mute()
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(theme.BACKGROUND)
+        self._draw_icon_buttons(surface)
         draw_text(
             surface, "Card Corner", (self.size[0] // 2, 90), size=64, bold=True, center=True
         )
@@ -130,6 +149,32 @@ class LauncherScreen(Screen):
                 bold=True,
                 center=True,
             )
+
+    def _draw_icon_buttons(self, surface: pygame.Surface) -> None:
+        for rect in (self.fullscreen_rect, self.mute_rect):
+            pygame.draw.rect(surface, theme.PANEL, rect, border_radius=10)
+            pygame.draw.rect(surface, theme.TEXT_DARK, rect, width=2, border_radius=10)
+
+        # Fullscreen glyph: four corner brackets, or an inward-pointing
+        # variant when already fullscreen (windowed target).
+        r = self.fullscreen_rect
+        pad, arm = 10, 8
+        corners = [(r.left + pad, r.top + pad, 1, 1), (r.right - pad, r.top + pad, -1, 1),
+                   (r.left + pad, r.bottom - pad, 1, -1), (r.right - pad, r.bottom - pad, -1, -1)]
+        for x, y, dx, dy in corners:
+            pygame.draw.line(surface, theme.TEXT_DARK, (x, y), (x + arm * dx, y), 3)
+            pygame.draw.line(surface, theme.TEXT_DARK, (x, y), (x, y + arm * dy), 3)
+
+        # Mute glyph: a speaker shape, with an X overlaid when muted.
+        r = self.mute_rect
+        cx, cy = r.center
+        body = [(cx - 14, cy - 6), (cx - 6, cy - 6), (cx + 4, cy - 14), (cx + 4, cy + 14), (cx - 6, cy + 6), (cx - 14, cy + 6)]
+        pygame.draw.polygon(surface, theme.TEXT_DARK, body)
+        if settings.get("muted"):
+            pygame.draw.line(surface, (196, 90, 90), (cx + 8, cy - 10), (cx + 18, cy + 10), 3)
+            pygame.draw.line(surface, (196, 90, 90), (cx + 18, cy - 10), (cx + 8, cy + 10), 3)
+        else:
+            pygame.draw.arc(surface, theme.TEXT_DARK, (cx + 6, cy - 10, 16, 20), -0.9, 0.9, 2)
 
 
 class DifficultySelectScreen(Screen):

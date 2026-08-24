@@ -12,6 +12,10 @@ class Screen:
     def __init__(self, size: tuple[int, int]):
         self.size = size
         self._next: Optional["Screen"] = None
+        # main.py's loop checks this every frame and exits cleanly if set --
+        # screens have no direct handle to the main loop (e.g. a "Quit App"
+        # button inside a pause overlay), so this is how they request it.
+        self.quit_requested = False
 
     def handle_event(self, event: pygame.event.Event) -> None:
         pass

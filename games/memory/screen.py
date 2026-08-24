@@ -14,6 +14,7 @@ import pygame
 
 from core.ai.base import DIFFICULTY_LABELS, Difficulty
 from ui import theme
+from ui.pause import PauseMenu
 from ui.screen import Screen
 from ui.widgets import (
     Button,
@@ -58,7 +59,16 @@ class MemoryScreen(Screen):
         self._tile_rects: list[tuple[int, pygame.Rect]] = []
         self._flip_anim: dict[int, float] = {}
         self._prev_shown: set[int] = set()
+        self._pause = PauseMenu(
+            size,
+            on_restart=self._restart,
+            on_quit_to_menu=lambda: self.go_to(self.on_menu()),
+            on_quit_app=self._quit_app,
+        )
         self._maybe_start_ai_turn()
+
+    def _quit_app(self) -> None:
+        self.quit_requested = True
 
     # -- timing helper ----------------------------------------------------
     def _schedule(self, delay: float, callback: Callable[[], None]) -> None:
@@ -147,9 +157,11 @@ class MemoryScreen(Screen):
 
     # -- Screen interface -------------------------------------------------
     def handle_event(self, event: pygame.event.Event) -> None:
+        if not self.game.game_over and self._pause.handle_event(event):
+            return
         for btn in self._end_buttons:
             btn.handle_event(event)
-        if self._locked or self.game.game_over:
+        if self._locked or self.game.game_over or self._pause.visible:
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for pos, rect in self._tile_rects:
@@ -158,6 +170,8 @@ class MemoryScreen(Screen):
                     return
 
     def update(self, dt: float) -> None:
+        if self._pause.visible:
+            return
         if self._pending_callback is not None:
             self._timer -= dt
             if self._timer <= 0:
@@ -209,6 +223,8 @@ class MemoryScreen(Screen):
             draw_game_over_modal(surface, self.size, self.message)
             for btn in self._end_buttons:
                 btn.draw(surface)
+        else:
+            self._pause.draw(surface)
         if self._confetti is not None:
             self._confetti.draw(surface)
 
