@@ -78,11 +78,28 @@ def _fish_item(surface, rect, color) -> None:
 
 
 def _bird(surface, rect, color) -> None:
+    # A sitting-bird silhouette: separate head + body + beak + wing, rather
+    # than the original twin-spike shape which visual QA found read more
+    # like a comet/spinning-top than a bird at real tile size.
     cx, cy = rect.center
-    s = min(rect.width, rect.height) * 0.16
-    pygame.draw.circle(surface, color, (cx, cy), s)
-    pygame.draw.polygon(surface, color, [(cx - s, cy), (cx - s * 2, cy - s * 0.6), (cx - s * 1.6, cy + s * 0.2)])
-    pygame.draw.polygon(surface, color, [(cx + s * 0.7, cy - s * 0.3), (cx + s * 1.6, cy - s * 0.7), (cx + s * 0.9, cy + s * 0.1)])
+    s = min(rect.width, rect.height) * 0.2
+    body = pygame.Rect(0, 0, s * 1.6, s * 1.3)
+    body.center = (cx, int(cy + s * 0.15))
+    pygame.draw.ellipse(surface, color, body)
+    head_c = (int(cx - s * 0.55), int(cy - s * 0.55))
+    pygame.draw.circle(surface, color, head_c, s * 0.55)
+    pygame.draw.polygon(
+        surface, color,
+        [
+            (head_c[0] - s * 0.55, head_c[1]),
+            (head_c[0] - s * 0.95, head_c[1] - s * 0.12),
+            (head_c[0] - s * 0.95, head_c[1] + s * 0.12),
+        ],
+    )
+    lighter = tuple(min(255, c + 60) for c in color)
+    wing = pygame.Rect(0, 0, s * 0.8, s * 0.6)
+    wing.center = (int(cx + s * 0.15), int(cy + s * 0.1))
+    pygame.draw.ellipse(surface, lighter, wing)
 
 
 def _tree(surface, rect, color) -> None:
@@ -184,19 +201,21 @@ def _owl(surface, rect, color) -> None:
 
 
 def _pig(surface, rect, color) -> None:
+    # Round ears (not Cat's pointy triangles) and a big, high-contrast
+    # snout with nostrils -- visual QA found the original version (pointy
+    # ears + a small low-contrast snout dot) nearly indistinguishable from
+    # Cat at real tile size.
     cx, cy = rect.center
     r = min(rect.width, rect.height) * 0.2
     pygame.draw.circle(surface, color, (cx, cy), r)
-    lighter = tuple(min(255, c + 60) for c in color)
-    pygame.draw.circle(surface, lighter, (cx, int(cy + r * 0.3)), r * 0.4)
-    pygame.draw.polygon(
-        surface, color,
-        [(cx - r * 0.7, cy - r * 0.6), (cx - r * 0.2, cy - r * 0.6), (cx - r * 0.5, cy - r * 1.2)],
-    )
-    pygame.draw.polygon(
-        surface, color,
-        [(cx + r * 0.7, cy - r * 0.6), (cx + r * 0.2, cy - r * 0.6), (cx + r * 0.5, cy - r * 1.2)],
-    )
+    pygame.draw.circle(surface, color, (int(cx - r * 0.75), int(cy - r * 0.75)), r * 0.35)
+    pygame.draw.circle(surface, color, (int(cx + r * 0.75), int(cy - r * 0.75)), r * 0.35)
+    lighter = tuple(min(255, c + 90) for c in color)
+    snout = pygame.Rect(0, 0, r * 0.9, r * 0.6)
+    snout.center = (cx, int(cy + r * 0.35))
+    pygame.draw.ellipse(surface, lighter, snout)
+    pygame.draw.circle(surface, color, (int(cx - r * 0.18), int(cy + r * 0.35)), r * 0.07)
+    pygame.draw.circle(surface, color, (int(cx + r * 0.18), int(cy + r * 0.35)), r * 0.07)
 
 
 # Letter Match's "animals" mode (spec §8): an animal picture matched to its
