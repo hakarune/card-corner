@@ -54,7 +54,16 @@ class GoFishStrategy(Strategy):
         anyone's hand) — see `_base_weight` for why this matters under the
         pair-based book rule.
         """
-        candidate_ranks = list(my_hand.ranks_present())
+        # Sorted, not just list(a_set): Hand.ranks_present() returns a
+        # set[Rank], and Rank is a plain Enum (identity-hashed), so its
+        # set iteration order is stable *within* one process but can differ
+        # *between* process runs (hash/memory-layout dependent) even for
+        # the exact same seed. weighted_choice's outcome for a fixed random
+        # draw depends on candidate order, so an unsorted list here would
+        # silently break the "same seed -> same game" reproducibility every
+        # gauntlet test relies on. Sorting pins the order to something that
+        # can never vary.
+        candidate_ranks = sorted(my_hand.ranks_present(), key=lambda r: r.value)
         if not candidate_ranks:
             raise ValueError("cannot ask with an empty hand")
         if not opponent_names:

@@ -189,3 +189,38 @@ def test_easy_ai_is_roughly_uniform_over_ranks():
         counts[rank] += 1
     ratio = counts[Rank.TWO] / max(counts[Rank.KING], 1)
     assert 0.7 < ratio < 1.4  # roughly 50/50, generous tolerance for randomness
+
+
+def test_decide_ask_orders_candidates_by_value_not_raw_set_iteration(monkeypatch):
+    # Regression: Hand.ranks_present() returns a set[Rank], and Rank is a
+    # plain Enum (identity-hashed) -- its set iteration order is stable
+    # *within* one process but can differ *between* separate process runs
+    # (memory-layout dependent), which used to make weighted_choice's
+    # outcome -- and therefore whole games, for a fixed seed -- silently
+    # non-reproducible across runs (empirically: the same 6000-seed gauntlet
+    # sweep measured 0.5003, 0.5008, 0.505, and 0.5103 across separate
+    # process invocations before this fix). decide_ask must sort candidates
+    # itself rather than trusting set iteration order. Force an adversarial,
+    # non-value-sorted iteration order here to prove it no longer matters.
+    hand = hand_of(Rank.KING, Rank.ACE, Rank.SEVEN)
+
+    class AdversarialOrderSet(set):
+        def __iter__(self):
+            return iter([Rank.KING, Rank.ACE, Rank.SEVEN])
+
+    monkeypatch.setattr(
+        hand, "ranks_present", lambda: AdversarialOrderSet({Rank.KING, Rank.ACE, Rank.SEVEN})
+    )
+
+    strategy = GoFishStrategy(Difficulty.MEDIUM, random.Random(0))
+    seen_orders = []
+    original = strategy._rank_weights
+
+    def spy(hand_, ranks, *args, **kwargs):
+        seen_orders.append(list(ranks))
+        return original(hand_, ranks, *args, **kwargs)
+
+    monkeypatch.setattr(strategy, "_rank_weights", spy)
+    strategy.decide_ask(hand, ["Bob"], [])
+
+    assert seen_orders[0] == [Rank.ACE, Rank.SEVEN, Rank.KING]
