@@ -8,7 +8,7 @@ import pygame
 import pytest
 
 from ui import asset_loader, theme
-from ui.widgets import draw_card_back
+from ui.widgets import draw_card_back, draw_old_maid_illustration
 
 
 def test_load_card_back_finds_a_real_generated_asset():
@@ -106,3 +106,28 @@ def test_transparent_gaps_in_real_art_show_the_theme_color_not_whatever_is_behin
     # intruder color.
     assert surf.get_at((45, 20))[:3] == card_theme.back_color
     assert surf.get_at((45, 20))[:3] != intruder
+
+
+def test_old_maid_illustration_not_made_yet_uses_procedural_fallback():
+    # No special/old_maid_card asset exists yet at all -- confirms the
+    # icon path is inert (falls through cleanly) rather than crashing on
+    # a category that has nothing in it.
+    assert asset_loader.load_icon("special", "old_maid_card") is None
+    rect = pygame.Rect(0, 0, 90, 130)
+    surf = pygame.Surface(rect.size)
+    draw_old_maid_illustration(surf, rect)  # must not raise
+
+
+def test_old_maid_illustration_uses_real_art_when_present(surface, monkeypatch):
+    from ui import widgets
+
+    fake = pygame.Surface((10, 10), pygame.SRCALPHA)
+    fake.fill((4, 5, 6, 255))
+    monkeypatch.setattr(widgets.asset_loader, "load_icon", lambda category, key: fake)
+
+    rect = pygame.Rect(0, 0, 90, 130)
+    surf = pygame.Surface(rect.size)
+    draw_old_maid_illustration(surf, rect)
+    # Center of the icon area -- must be the fake art's flat color, not
+    # any part of the procedural face (which would never be flat there).
+    assert surf.get_at((45, 55))[:3] == (4, 5, 6)

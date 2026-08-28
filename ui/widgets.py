@@ -98,6 +98,19 @@ def _fit_text(text: str, max_width: int, size: int, color) -> pygame.Surface:
     return surf
 
 
+def _blit_icon_contain(surface: pygame.Surface, rect: pygame.Rect, icon: pygame.Surface) -> None:
+    """Scales `icon` to fit within `rect` without distorting it (preserves
+    aspect ratio, centered) -- icons are authored as a square (design.md)
+    but get placed into all kinds of non-square areas across the app, so
+    this never stretches a square source into an oval/rectangle.
+    """
+    iw, ih = icon.get_size()
+    scale = min(rect.width / iw, rect.height / ih)
+    size = (max(1, round(iw * scale)), max(1, round(ih * scale)))
+    scaled = pygame.transform.smoothscale(icon, size)
+    surface.blit(scaled, scaled.get_rect(center=rect.center))
+
+
 def _clip_rounded(img: pygame.Surface, radius: int) -> pygame.Surface:
     mask = pygame.Surface(img.get_size(), pygame.SRCALPHA)
     pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=radius)
@@ -169,6 +182,17 @@ def draw_old_maid_illustration(surface: pygame.Surface, rect: pygame.Rect) -> No
     card_theme = theme.CARD_THEMES["old_maid"]
     pygame.draw.rect(surface, card_theme.front_tint, rect, border_radius=12)
     pygame.draw.rect(surface, card_theme.back_color, rect, width=3, border_radius=12)
+
+    icon = asset_loader.load_icon("special", "old_maid_card")
+    if icon is not None:
+        icon_area = rect.inflate(-int(rect.width * 0.15), -int(rect.height * 0.15))
+        icon_area.centery = rect.centery - rect.height * 0.05  # leave room for the label below
+        _blit_icon_contain(surface, icon_area, icon)
+        label_surf = _fit_text(
+            "OLD MAID", int(rect.width * 0.9), max(int(rect.height * 0.1), 10), card_theme.back_color
+        )
+        surface.blit(label_surf, label_surf.get_rect(midbottom=(rect.centerx, rect.bottom - 6)))
+        return
 
     cx, cy = rect.centerx, rect.centery + rect.height * 0.06
     head_r = rect.width * 0.28
