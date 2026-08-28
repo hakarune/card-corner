@@ -117,6 +117,13 @@ def draw_card_back(surface: pygame.Surface, rect: pygame.Rect, card_theme=None) 
     if card_theme is not None:
         image = asset_loader.load_card_back(card_theme.asset_key)
         if image is not None:
+            # The art is transparent in the gaps between pattern elements
+            # (by design -- see assets/design.md), so a solid base fill has
+            # to go down first or those gaps let whatever's underneath show
+            # through: the page background, or -- worse -- an overlapping
+            # previously-drawn card's own label text, in a hand of
+            # face-down cards spaced close enough to overlap.
+            pygame.draw.rect(surface, card_theme.back_color, rect, border_radius=12)
             scaled = pygame.transform.smoothscale(image, rect.size)
             surface.blit(_clip_rounded(scaled, 12), rect.topleft)
             pygame.draw.rect(surface, theme.CARD_BORDER, rect, width=3, border_radius=12)

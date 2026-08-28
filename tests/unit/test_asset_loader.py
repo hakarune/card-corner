@@ -77,3 +77,32 @@ def test_draw_card_back_falls_back_to_procedural_when_no_art(surface, monkeypatc
     surf = pygame.Surface(rect.size)
     draw_card_back(surf, rect, theme.CARD_THEMES["go_fish"])
     assert surf.get_at((5, 65))[:3] == theme.CARD_THEMES["go_fish"].back_color
+
+
+def test_transparent_gaps_in_real_art_show_the_theme_color_not_whatever_is_behind(surface, monkeypatch):
+    # Bug caught during playtesting: the source SVGs are transparent in the
+    # gaps between pattern elements (by design -- see assets/design.md),
+    # but draw_card_back's image path used to blit straight onto the
+    # destination with no solid base fill first, so those gaps let
+    # whatever was already on the surface show through -- the page
+    # background, or an overlapping *previous* card's own label text in a
+    # hand of face-down cards spaced close enough to overlap.
+    from ui import widgets
+
+    fake = pygame.Surface((10, 10), pygame.SRCALPHA)  # fully transparent everywhere
+    monkeypatch.setattr(widgets.asset_loader, "load_card_back", lambda key: fake)
+
+    rect = pygame.Rect(0, 0, 90, 130)
+    surf = pygame.Surface(rect.size)
+    intruder = (222, 33, 99)  # stands in for "an overlapping card's label" / page background
+    surf.fill(intruder)
+
+    card_theme = theme.CARD_THEMES["go_fish"]
+    draw_card_back(surf, rect, card_theme)
+
+    # Near the top edge: clear of the border stroke, clear of the rounded
+    # corners (horizontally centered), and clear of the vertically-
+    # centered label -- must be the theme's solid color, never the
+    # intruder color.
+    assert surf.get_at((45, 20))[:3] == card_theme.back_color
+    assert surf.get_at((45, 20))[:3] != intruder
