@@ -93,6 +93,37 @@ def test_extracted_package_can_actually_import_every_top_level_source_dir(built_
     assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
 
 
+def test_extracted_package_can_actually_load_a_real_card_back_asset(built_deb, tmp_path):
+    """Same "don't trust the isolated unit test" reasoning as the import
+    check above, but for the asset pipeline specifically: ui.asset_loader
+    uses importlib.resources, which resolves differently under a real
+    installed-style layout than it does from the dev tree pytest runs
+    from. Prove the committed ui/assets/*.png actually loads from the
+    extracted .deb layout, not just that the module imports cleanly.
+    """
+    extract_dir = tmp_path / "asset_check"
+    subprocess.run(["dpkg-deb", "-x", str(built_deb), str(extract_dir)], check=True)
+    app_dir = extract_dir / "usr" / "share" / "card-corner"
+
+    result = subprocess.run(
+        [sys.executable, "-c",
+         # A real display mode must exist before convert_alpha() works
+         # (which main.py always does before constructing any screen) --
+         # without it the loader's own broad except-and-return-None safety
+         # net would silently mask a real failure here as "no asset".
+         "import pygame; pygame.init(); pygame.display.set_mode((1, 1)); "
+         "from ui.asset_loader import load_card_back; "
+         "img = load_card_back('go_fish'); "
+         "assert img is not None, 'expected the committed go_fish card back to load'; "
+         "assert img.get_size() == (280, 400), img.get_size()"],
+        cwd=str(app_dir),
+        capture_output=True,
+        text=True,
+        env={"SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+
+
 def test_launcher_script_is_executable(built_deb):
     result = subprocess.run(
         ["dpkg-deb", "--contents", str(built_deb)], capture_output=True, text=True, check=True

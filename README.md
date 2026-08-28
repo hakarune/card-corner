@@ -83,12 +83,30 @@ dependencies. Releases are built and published automatically by
 core/            Shared card/deck/player primitives and per-game AI strategies
 games/           Game-specific rules and screens (go_fish, old_maid, memory, letter_match)
 ui/              Shared kid-friendly widgets, theme, settings, pause overlay, update check
+ui/assets/       Generated art (see "Art assets" below) — never hand-edited
 debpkg/          .deb packaging (build script, .desktop file, icon generator)
-assets/          ATTRIBUTIONS.md — all art is drawn procedurally at runtime by ui/, no static files
+assets/          Art source files, the art pipeline guide (design.md), attributions
+tools/           build_assets.py — converts assets/source/ into ui/assets/
 tests/unit/      Unit tests for core + per-game rule logic
 tests/gauntlet/  Headless AI-vs-AI self-play simulation harness
 version.py       Single source of truth for the app version
 ```
+
+## Art assets
+
+Every game/card/icon has a working built-in procedural fallback, so real
+art is always optional — nothing breaks if a piece is missing, mid-edit,
+or corrupted. To add or replace art:
+
+1. Read `assets/design.md` for exact sizes, naming, and where each file
+   goes under `assets/source/`.
+2. Run `python tools/build_assets.py` (needs `pip install -e ".[assets]"`
+   only if you're using `.svg` sources — a `.png`-only workflow needs
+   nothing extra) to regenerate `ui/assets/`, which is what the game
+   actually loads.
+3. `run.sh` also does this automatically (best-effort, never blocks
+   startup) so day-to-day `./run.sh` picks up edits without a separate
+   step; the `.deb` build does the same before packaging.
 
 ## License
 
