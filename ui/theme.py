@@ -62,6 +62,7 @@ class CardTheme:
     back_color: tuple[int, int, int]
     pattern: str  # one of PATTERN_DRAWERS' keys in ui.widgets
     front_tint: tuple[int, int, int]
+    asset_key: str  # ui.asset_loader.load_card_back's key; see assets/design.md
 
 
 CARD_THEMES: dict[str, CardTheme] = {
@@ -70,18 +71,21 @@ CARD_THEMES: dict[str, CardTheme] = {
         back_color=GAME_COLORS["go_fish"],
         pattern="fish",
         front_tint=_tint(GAME_COLORS["go_fish"]),
+        asset_key="go_fish",
     ),
     "old_maid": CardTheme(
         label="OLD MAID",
         back_color=GAME_COLORS["old_maid"],
         pattern="crown",
         front_tint=_tint(GAME_COLORS["old_maid"]),
+        asset_key="old_maid",
     ),
     "memory": CardTheme(
         label="MEMORY",
         back_color=GAME_COLORS["memory"],
         pattern="puzzle",
         front_tint=_tint(GAME_COLORS["memory"]),
+        asset_key="memory",
     ),
 }
 

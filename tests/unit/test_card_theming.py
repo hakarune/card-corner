@@ -70,10 +70,15 @@ def test_letter_tile_background_is_not_plain_white(surface):
     assert fill_pixel != (255, 255, 255)
 
 
-def test_narrow_card_back_skips_pattern_but_keeps_label_and_color(surface):
+def test_narrow_card_back_skips_pattern_but_keeps_label_and_color(surface, monkeypatch):
     # A compact opponent-hand back (< 85px) drops the corner pattern (it
     # would collide with the label at that size) but must still carry the
-    # theme color and not crash.
+    # theme color and not crash. This is specifically the procedural
+    # fallback's behavior, so force that path regardless of whether real
+    # art happens to exist for this game right now (see assets/design.md).
+    from ui import widgets
+
+    monkeypatch.setattr(widgets.asset_loader, "load_card_back", lambda key: None)
     rect = pygame.Rect(0, 0, 70, 100)
     surf = pygame.Surface(rect.size)
     card_theme = theme.CARD_THEMES["old_maid"]

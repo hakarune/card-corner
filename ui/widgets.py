@@ -11,7 +11,7 @@ import pygame
 
 from audio.manager import audio
 
-from . import items, theme
+from . import asset_loader, items, theme
 
 
 class Button:
@@ -98,13 +98,34 @@ def _fit_text(text: str, max_width: int, size: int, color) -> pygame.Surface:
     return surf
 
 
+def _clip_rounded(img: pygame.Surface, radius: int) -> pygame.Surface:
+    mask = pygame.Surface(img.get_size(), pygame.SRCALPHA)
+    pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=radius)
+    result = img.convert_alpha()
+    result.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    return result
+
+
 def draw_card_back(surface: pygame.Surface, rect: pygame.Rect, card_theme=None) -> None:
-    """A themed card back: solid game color, a small repeating pattern in
-    each corner, and the game's name lettered across the middle -- so a
+    """A themed card back: real art if it's been made (assets/design.md),
+    otherwise a solid game color with a small repeating pattern in each
+    corner -- either way, the game's name lettered across the middle, so a
     face-down card instantly tells you which game you're playing (spec §4).
     Falls back to the original generic circle-in-circle back if no theme is
-    given (kept for callers/tests that don't care which game it's for).
+    given at all (kept for callers/tests that don't care which game it's for).
     """
+    if card_theme is not None:
+        image = asset_loader.load_card_back(card_theme.asset_key)
+        if image is not None:
+            scaled = pygame.transform.smoothscale(image, rect.size)
+            surface.blit(_clip_rounded(scaled, 12), rect.topleft)
+            pygame.draw.rect(surface, theme.CARD_BORDER, rect, width=3, border_radius=12)
+            label_surf = _fit_text(
+                card_theme.label, int(rect.width * 0.85), max(int(rect.height * 0.13), 11), theme.TEXT_LIGHT
+            )
+            surface.blit(label_surf, label_surf.get_rect(center=rect.center))
+            return
+
     pygame.draw.rect(surface, card_theme.back_color if card_theme else theme.CARD_BACK, rect, border_radius=12)
     pygame.draw.rect(surface, theme.CARD_BORDER, rect, width=3, border_radius=12)
 
