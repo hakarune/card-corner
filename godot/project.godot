@@ -29,3 +29,7 @@ textures/vram_compression/import_etc2_astc=true
 [audio]
 
 driver/enable_input=false
+
+[autoload]
+
+CCAudio="*res://ui/cc_audio.gd"
