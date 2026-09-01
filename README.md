@@ -1,7 +1,7 @@
 # Card Corner
 
-A small suite of kid-friendly card games for **ages 5–8**, built with Python
-and Pygame. One launcher, four games:
+A small suite of kid-friendly card games for **ages 5–8**. One launcher,
+four games:
 
 - **Go Fish**
 - **Old Maid**
@@ -14,7 +14,19 @@ selectable difficulty tiers (Sleepy Fox / Clever Fox / Sneaky Fox). The
 opponent never peeks at hidden information, and its choices are randomized
 per-tier so no two games play out the same way.
 
-## Requirements
+## Repository layout
+
+This project is mid-migration from Python/Pygame to **Godot 4.7**:
+
+- **`godot/`** — the Godot 4.7 port (in progress). Target platforms:
+  Linux `.deb`, Windows `.exe`, and Web.
+- **`legacy/`** — the original Python/Pygame implementation, archived
+  intact for reference. Still runnable (`cd legacy && ./run.sh`); its
+  test suite is the behavioural spec the port is validated against.
+- **`assets/`** — shared art: editable originals under `assets/Designing/`,
+  the art guide in `assets/design.md`.
+
+## Requirements (legacy Python version)
 
 - Python 3.11+
 - Linux (the target platform — other OSes are not actively tested)

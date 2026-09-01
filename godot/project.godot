@@ -1,0 +1,31 @@
+; Card Corner - Godot 4.7 port
+; Engine configuration file. Managed partly by the editor; safe to hand-edit.
+
+config_version=5
+
+[application]
+
+config/name="Card Corner"
+config/version="0.1.0"
+config/description="A kid-friendly card game suite: Go Fish, Old Maid, Memory, and Letter Match."
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1024
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+window/size/resizable=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+
+[audio]
+
+driver/enable_input=false
