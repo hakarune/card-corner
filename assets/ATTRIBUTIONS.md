@@ -7,12 +7,13 @@ needs a license entry here, since there's no external source to credit.
 
 ## Original static art
 
-Some card backs are now real static PNGs (see `assets/design.md` for the
-full pipeline: source files under `assets/source/`, generated output
-under `ui/assets/`, converted by `tools/build_assets.py`) rather than
-being drawn procedurally. Every one of these is original artwork made
-directly for this project — none are sourced from a stock/third-party
-library. As more are added, they belong here as originals too, not as an
+The three card backs, the Old Maid card front, and the four main-menu
+game icons are real static art — PNG/JPG files committed directly under
+`ui/assets/` and loaded as-is (see `assets/design.md`), rather than drawn
+procedurally. Every one is original artwork made directly for this
+project — none are sourced from a stock/third-party library. Editable
+originals live under `assets/Designing/` and are likewise all original.
+As more are added, they belong here as originals too, not as an
 attribution entry, unless one is ever sourced from outside the project
 (see the note at the bottom).
 
@@ -29,7 +30,8 @@ doesn't exist yet:
 - `ui/items.py` — the procedural item and animal icon set (Go Fish/Memory's
   card faces, Letter Match's Animals mode).
 - `ui/launcher.py` — the four per-game menu icons (fish, crown, card pair,
-  "Aa"), drawn the same way.
+  "Aa"), drawn the same way as a fallback when the real icon art above
+  isn't present.
 - `ui/theme.py` — the shared color palette and font settings referenced by
   all of the above.
 

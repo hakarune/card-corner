@@ -23,11 +23,17 @@ def test_load_card_back_returns_none_for_a_key_with_no_art_yet():
     assert asset_loader.load_card_back("not_a_real_game") is None
 
 
-def test_load_icon_returns_none_when_nothing_has_been_made_yet():
-    # No icon-category art exists yet at all (only the 3 card backs do).
+def test_load_icon_finds_a_real_generated_launcher_asset():
+    # The four main-menu game icons are committed, real art (assets/design.md).
+    img = asset_loader.load_icon("launcher", "memory")
+    assert img is not None
+    assert img.get_size() == (512, 512)
+
+
+def test_load_icon_returns_none_for_categories_with_no_art_yet():
+    # Item / animal / special icons haven't been made yet -- must fall back.
     assert asset_loader.load_icon("items", "sun") is None
     assert asset_loader.load_icon("animals", "cat") is None
-    assert asset_loader.load_icon("launcher", "memory") is None
     assert asset_loader.load_icon("special", "old_maid_card") is None
 
 
@@ -51,6 +57,50 @@ def test_a_missing_or_broken_asset_never_raises(monkeypatch):
     monkeypatch.setattr(importlib.resources, "files", lambda *_a: ExplodingPath())
     assert asset_loader.load_card_back("go_fish") is None
     asset_loader._load.cache_clear()
+
+
+@pytest.fixture
+def staged_assets(tmp_path, monkeypatch):
+    """Redirects asset_loader's importlib.resources.files("ui.assets") at a
+    real temp directory so a test can drop arbitrary art files under it.
+    Clears the load cache on the way in and out so nothing leaks between
+    tests.
+    """
+    import importlib.resources
+
+    asset_loader._load.cache_clear()
+    monkeypatch.setattr(importlib.resources, "files", lambda *_a: tmp_path)
+    yield tmp_path
+    asset_loader._load.cache_clear()
+
+
+def test_load_resolves_a_jpg_when_that_is_the_only_file(surface, staged_assets):
+    # A .jpg drop-in must be picked up just like a .png (design.md: card
+    # backs may be committed as JPG).
+    backs = staged_assets / "cards" / "backs"
+    backs.mkdir(parents=True)
+    art = pygame.Surface((280, 400))
+    art.fill((10, 120, 200))
+    pygame.image.save(art, str(backs / "go_fish.jpg"))
+
+    img = asset_loader.load_card_back("go_fish")
+    assert img is not None
+    assert img.get_size() == (280, 400)
+
+
+def test_load_prefers_png_over_jpg_when_both_exist(surface, staged_assets):
+    backs = staged_assets / "cards" / "backs"
+    backs.mkdir(parents=True)
+    png_art = pygame.Surface((12, 12), pygame.SRCALPHA)
+    png_art.fill((0, 0, 0, 255))
+    pygame.image.save(png_art, str(backs / "memory.png"))
+    jpg_art = pygame.Surface((34, 34))
+    jpg_art.fill((255, 255, 255))
+    pygame.image.save(jpg_art, str(backs / "memory.jpg"))
+
+    img = asset_loader.load_card_back("memory")
+    assert img is not None
+    assert img.get_size() == (12, 12)  # the .png, not the .jpg
 
 
 def test_draw_card_back_uses_real_art_when_present(surface, monkeypatch):
@@ -108,21 +158,49 @@ def test_transparent_gaps_in_real_art_show_the_theme_color_not_whatever_is_behin
     assert surf.get_at((45, 20))[:3] != intruder
 
 
-def test_old_maid_illustration_not_made_yet_uses_procedural_fallback():
-    # No special/old_maid_card asset exists yet at all -- confirms the
-    # icon path is inert (falls through cleanly) rather than crashing on
-    # a category that has nothing in it.
-    assert asset_loader.load_icon("special", "old_maid_card") is None
+def test_load_card_front_finds_a_real_generated_asset():
+    # The Old Maid card face is committed, real art (assets/design.md).
+    img = asset_loader.load_card_front("old_maid")
+    assert img is not None
+    assert img.get_size() == (280, 400)
+
+
+def test_load_card_front_returns_none_for_a_key_with_no_art_yet():
+    assert asset_loader.load_card_front("not_a_real_card") is None
+
+
+def test_old_maid_illustration_falls_through_cleanly_when_no_art(surface, monkeypatch):
+    # Neither the card front nor the special icon exists -- must reach the
+    # procedural granny face without crashing on an empty category.
+    from ui import widgets
+
+    monkeypatch.setattr(widgets.asset_loader, "load_card_front", lambda key: None)
+    monkeypatch.setattr(widgets.asset_loader, "load_icon", lambda category, key: None)
     rect = pygame.Rect(0, 0, 90, 130)
     surf = pygame.Surface(rect.size)
     draw_old_maid_illustration(surf, rect)  # must not raise
 
 
-def test_old_maid_illustration_uses_real_art_when_present(surface, monkeypatch):
+def test_old_maid_illustration_uses_card_front_art_when_present(surface, monkeypatch):
+    from ui import widgets
+
+    fake = pygame.Surface((10, 10), pygame.SRCALPHA)
+    fake.fill((7, 8, 9, 255))
+    monkeypatch.setattr(widgets.asset_loader, "load_card_front", lambda key: fake)
+
+    rect = pygame.Rect(0, 0, 90, 130)
+    surf = pygame.Surface(rect.size)
+    draw_old_maid_illustration(surf, rect)
+    # Well inside the card, clear of the border stroke and the bottom label.
+    assert surf.get_at((45, 45))[:3] == (7, 8, 9)
+
+
+def test_old_maid_illustration_uses_special_icon_when_no_card_front(surface, monkeypatch):
     from ui import widgets
 
     fake = pygame.Surface((10, 10), pygame.SRCALPHA)
     fake.fill((4, 5, 6, 255))
+    monkeypatch.setattr(widgets.asset_loader, "load_card_front", lambda key: None)
     monkeypatch.setattr(widgets.asset_loader, "load_icon", lambda category, key: fake)
 
     rect = pygame.Rect(0, 0, 90, 130)

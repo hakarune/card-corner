@@ -1,19 +1,19 @@
-"""Converts artist-supplied source art (assets/source/) into the finished
-PNGs the game actually loads (ui/assets/) -- see assets/design.md for the
-full guide this implements.
+"""OPTIONAL helper: rasterizes SVG sources placed under assets/source/
+into the PNGs the game loads from ui/assets/ -- see assets/design.md.
 
-Not part of the shipped app: this is a maintainer-side tool, run manually
-after adding/editing art, or as a build step before packaging a .deb.
-main.py and every ui/games module load only from ui/assets/ (already-
-generated PNGs) and never import this file or cairosvg -- so an end user
-never needs a rasterizer at all, only whoever is producing art.
+This is NOT part of any normal flow. The game, run.sh, and the .deb build
+all just load the PNG/JPG art committed directly under ui/assets/; art is
+authored and committed as raster now. `assets/source/` does not exist by
+default -- create it and drop `<category>/<key>.svg` files in if you'd
+rather keep vector sources and batch-convert them here. main.py and every
+ui module load only from ui/assets/ and never import this file or
+cairosvg, so an end user never needs a rasterizer.
 
 Usage:
     python tools/build_assets.py            # (re)build anything missing or stale
     python tools/build_assets.py --force     # rebuild everything regardless of mtimes
 
-Requires cairosvg only for keys whose source is an .svg (install via
-`pip install -e ".[assets]"`). A key sourced from a .png never needs it.
+Requires cairosvg for .svg sources: `pip install -e ".[assets]"`.
 """
 from __future__ import annotations
 
@@ -53,6 +53,15 @@ def _launcher_keys() -> list[str]:
     return sorted(key for key, _label, _icon_fn in GAME_TILES)
 
 
+def _card_front_keys() -> list[str]:
+    """Card fronts have no live code registry (unlike items/animals/launcher
+    tiles): the only card with its own real front art is the Old Maid card.
+    Add a key here as more get made -- keep it in sync with assets/design.md's
+    "Card fronts" table.
+    """
+    return ["old_maid"]
+
+
 def build_manifest() -> list[AssetSpec]:
     """The manifest is derived from the live registries in ui/items.py and
     ui/launcher.py (not a hand-maintained duplicate list), so a new item
@@ -66,6 +75,9 @@ def build_manifest() -> list[AssetSpec]:
         AssetSpec("cards/backs", "old_maid", (280, 400), "tile2x2"),
         AssetSpec("cards/backs", "memory", (500, 500), "whole"),
         AssetSpec("icons/special", "old_maid_card", (512, 512), "icon"),
+    ]
+    manifest += [
+        AssetSpec("cards/fronts", k, (280, 400), "card_front") for k in _card_front_keys()
     ]
     manifest += [AssetSpec("icons/items", k, (512, 512), "icon") for k in _item_keys()]
     manifest += [AssetSpec("icons/animals", k, (512, 512), "icon") for k in _animal_keys()]
@@ -139,11 +151,32 @@ def tile_crop(master: pygame.Surface, size: tuple[int, int], n: int) -> pygame.S
     return surf
 
 
+def contain_on_canvas(master: pygame.Surface, size: tuple[int, int]) -> pygame.Surface:
+    """Trims fully-transparent margins off `master`, then scales what's left
+    to fit within `size` (aspect preserved) and centres it on a transparent
+    canvas of exactly `size`. Lets a card front exported from a square
+    artboard (lots of empty space around the card shape) land as a tight,
+    correctly-proportioned portrait image without the artist having to crop
+    it by hand.
+    """
+    bbox = master.get_bounding_rect(min_alpha=1)
+    if bbox.width and bbox.height:
+        master = master.subsurface(bbox).copy()
+    mw, mh = master.get_size()
+    scale = min(size[0] / mw, size[1] / mh)
+    inner = pygame.transform.smoothscale(master, (max(1, round(mw * scale)), max(1, round(mh * scale))))
+    surf = pygame.Surface(size, pygame.SRCALPHA)
+    surf.blit(inner, inner.get_rect(center=(size[0] // 2, size[1] // 2)))
+    return surf
+
+
 def apply_treatment(master: pygame.Surface, spec: AssetSpec) -> pygame.Surface:
     if spec.treatment == "whole":
         return pygame.transform.smoothscale(master, spec.size)
     if spec.treatment == "tile2x2":
         return tile_crop(master, spec.size, 2)
+    if spec.treatment == "card_front":
+        return contain_on_canvas(master, spec.size)
     if spec.treatment == "icon":
         # Source is specced as a square, transparent-background canvas
         # (design.md) -- runtime code does its own contain-fit into

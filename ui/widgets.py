@@ -98,7 +98,7 @@ def _fit_text(text: str, max_width: int, size: int, color) -> pygame.Surface:
     return surf
 
 
-def _blit_icon_contain(surface: pygame.Surface, rect: pygame.Rect, icon: pygame.Surface) -> None:
+def blit_icon_contain(surface: pygame.Surface, rect: pygame.Rect, icon: pygame.Surface) -> None:
     """Scales `icon` to fit within `rect` without distorting it (preserves
     aspect ratio, centered) -- icons are authored as a square (design.md)
     but get placed into all kinds of non-square areas across the app, so
@@ -183,11 +183,25 @@ def draw_old_maid_illustration(surface: pygame.Surface, rect: pygame.Rect) -> No
     pygame.draw.rect(surface, card_theme.front_tint, rect, border_radius=12)
     pygame.draw.rect(surface, card_theme.back_color, rect, width=3, border_radius=12)
 
+    front = asset_loader.load_card_front("old_maid")
+    if front is not None:
+        # A whole pre-rendered card face (assets/design.md's "Card fronts"):
+        # tint base stays underneath in case the art has transparent margins,
+        # the name is still lettered by code on top (never baked into the art).
+        scaled = pygame.transform.smoothscale(front, rect.size)
+        surface.blit(_clip_rounded(scaled, 12), rect.topleft)
+        pygame.draw.rect(surface, card_theme.back_color, rect, width=3, border_radius=12)
+        label_surf = _fit_text(
+            "OLD MAID", int(rect.width * 0.9), max(int(rect.height * 0.1), 10), card_theme.back_color
+        )
+        surface.blit(label_surf, label_surf.get_rect(midbottom=(rect.centerx, rect.bottom - 6)))
+        return
+
     icon = asset_loader.load_icon("special", "old_maid_card")
     if icon is not None:
         icon_area = rect.inflate(-int(rect.width * 0.15), -int(rect.height * 0.15))
         icon_area.centery = rect.centery - rect.height * 0.05  # leave room for the label below
-        _blit_icon_contain(surface, icon_area, icon)
+        blit_icon_contain(surface, icon_area, icon)
         label_surf = _fit_text(
             "OLD MAID", int(rect.width * 0.9), max(int(rect.height * 0.1), 10), card_theme.back_color
         )

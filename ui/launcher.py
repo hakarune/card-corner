@@ -11,10 +11,10 @@ import pygame
 import webbrowser
 
 from core.ai.base import Difficulty, DIFFICULTY_LABELS
-from . import settings, theme
+from . import asset_loader, settings, theme
 from .screen import Screen
 from .update_check import UpdateChecker
-from .widgets import Button, draw_text
+from .widgets import Button, blit_icon_contain, draw_text
 
 
 def _draw_go_fish_icon(surface: pygame.Surface, rect: pygame.Rect) -> None:
@@ -158,11 +158,15 @@ class LauncherScreen(Screen):
             color=theme.TEXT_MUTED,
             center=True,
         )
-        for btn, label, icon_fn in self._icons:
+        for (btn, label, icon_fn), (key, _key_label, _key_fn) in zip(self._icons, GAME_TILES):
             btn.draw(surface)
             icon_area = btn.rect.inflate(-40, -90)
             icon_area.top = btn.rect.top + 10
-            icon_fn(surface, icon_area)
+            art = asset_loader.load_icon("launcher", key)
+            if art is not None:
+                blit_icon_contain(surface, icon_area, art)
+            else:
+                icon_fn(surface, icon_area)
             draw_text(
                 surface,
                 label,

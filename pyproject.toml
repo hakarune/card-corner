@@ -12,11 +12,11 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
-# Only needed to run tools/build_assets.py (converting artist-supplied
-# assets/source/*.svg into the ui/assets/*.png the game actually loads).
-# The shipped app and .deb never depend on this -- it only ever loads
-# already-generated PNGs. A key sourced from a .png instead of .svg never
-# needs this either.
+# Optional. Only needed for tools/build_assets.py, a stand-alone helper
+# that rasterizes SVGs in assets/source/ into ui/assets/ PNGs. It is NOT
+# part of any normal flow: the game, run.sh, and the .deb build all just
+# load the PNG/JPG art committed directly under ui/assets/. Kept for
+# anyone who prefers to keep .svg sources and batch-convert them.
 assets = [
     "cairosvg>=2.7",
 ]
@@ -35,8 +35,8 @@ include = ["core*", "games*", "ui*", "audio*"]
 py-modules = ["main", "version"]
 
 [tool.setuptools.package-data]
-# Generated art (assets/design.md, tools/build_assets.py) -- setuptools
+# The real art the game loads (see assets/design.md) -- setuptools
 # excludes non-.py files by default, so this needs an explicit declaration
 # or a `pip install .` (as opposed to the .deb's raw directory copy) would
 # silently ship without any of it.
-"ui.assets" = ["**/*.png"]
+"ui.assets" = ["**/*.png", "**/*.jpg", "**/*.jpeg"]

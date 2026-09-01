@@ -45,22 +45,6 @@ SOURCE_DIRS = ["core", "games", "ui", "audio"]
 SOURCE_FILES = ["main.py", "version.py"]
 
 
-def _build_assets() -> None:
-    """Regenerates ui/assets/*.png from assets/source/ (see assets/design.md
-    and tools/build_assets.py) before packaging, so a .deb never ships art
-    that's stale relative to an edited .svg. Best-effort: the build tool
-    itself already degrades gracefully (skips, doesn't crash) if cairosvg
-    isn't installed or a source file is bad, so this never blocks a
-    package build -- worst case, it ships whatever ui/assets/*.png was
-    already committed, which is always a valid, already-tested state.
-    """
-    subprocess.run(
-        [sys.executable, str(REPO_ROOT / "tools" / "build_assets.py")],
-        check=False,
-        env={"SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "PATH": "/usr/bin:/bin"},
-    )
-
-
 def _copy_source(staging: Path) -> None:
     app_dir = staging / "usr" / "share" / PACKAGE_NAME
     app_dir.mkdir(parents=True, exist_ok=True)
@@ -158,7 +142,6 @@ def build(output_dir: Path) -> Path:
         shutil.rmtree(staging)
     staging.mkdir(parents=True)
 
-    _build_assets()
     _copy_source(staging)
     _write_launcher(staging)
     _write_desktop_entry(staging)

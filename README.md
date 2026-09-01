@@ -83,10 +83,10 @@ dependencies. Releases are built and published automatically by
 core/            Shared card/deck/player primitives and per-game AI strategies
 games/           Game-specific rules and screens (go_fish, old_maid, memory, letter_match)
 ui/              Shared kid-friendly widgets, theme, settings, pause overlay, update check
-ui/assets/       Generated art (see "Art assets" below) — never hand-edited
+ui/assets/       Real art the game loads — commit PNG/JPG here (see "Art assets" below)
 debpkg/          .deb packaging (build script, .desktop file, icon generator)
-assets/          Art source files, the art pipeline guide (design.md), attributions
-tools/           build_assets.py — converts assets/source/ into ui/assets/
+assets/          design.md (art guide), attributions, Designing/ (editable art originals)
+tools/           build_assets.py — optional SVG→PNG converter, not part of any normal flow
 tests/unit/      Unit tests for core + per-game rule logic
 tests/gauntlet/  Headless AI-vs-AI self-play simulation harness
 version.py       Single source of truth for the app version
@@ -98,15 +98,14 @@ Every game/card/icon has a working built-in procedural fallback, so real
 art is always optional — nothing breaks if a piece is missing, mid-edit,
 or corrupted. To add or replace art:
 
-1. Read `assets/design.md` for exact sizes, naming, and where each file
-   goes under `assets/source/`.
-2. Run `python tools/build_assets.py` (needs `pip install -e ".[assets]"`
-   only if you're using `.svg` sources — a `.png`-only workflow needs
-   nothing extra) to regenerate `ui/assets/`, which is what the game
-   actually loads.
-3. `run.sh` also does this automatically (best-effort, never blocks
-   startup) so day-to-day `./run.sh` picks up edits without a separate
-   step; the `.deb` build does the same before packaging.
+1. Read `assets/design.md` for exact sizes, naming, and which folder each
+   file goes in.
+2. Export a PNG or JPG at the documented size and drop it straight into
+   `ui/assets/<category>/<key>.<png|jpg>`. That folder is what the game
+   loads — there's no build or convert step.
+3. Commit it. Keep your editable original (SVG, `.afdesign`, layered
+   export) wherever you like — `assets/Designing/` is the spot for that;
+   the game never touches it.
 
 ## License
 
