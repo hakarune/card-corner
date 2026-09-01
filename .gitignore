@@ -44,3 +44,6 @@ godot/*.tmp
 # tests/render_screenshots.py output (ad-hoc visual QA, not a build artifact)
 /screenshots/
 /public/
+
+# local playtest screenshots
+/Gameplay test images/

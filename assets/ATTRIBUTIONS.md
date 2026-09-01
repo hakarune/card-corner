@@ -42,3 +42,9 @@ repository.
 If an external CC0/public-domain asset pack, font, or audio sample is
 ever added in the future, log its source and license here, one entry per
 asset (or asset pack) — distinct from the original art noted above.
+
+## Reused from another of this author's projects
+
+- `godot/assets/icons/ui/mute.png` — sound-on speaker glyph, brought over
+  from a sibling project by the same author. Original work, not
+  third-party stock.

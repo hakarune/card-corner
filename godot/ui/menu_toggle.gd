@@ -10,6 +10,8 @@ signal pressed
 
 var _active := false  ## fullscreen: is fullscreen; mute: is muted
 var _hovered := false
+var _tex_checked := false
+var _tex: Texture2D = null
 
 
 func set_active(value: bool) -> void:
@@ -47,10 +49,30 @@ func _draw() -> void:
 	draw_style_box(sb, full)
 
 	var c := full.get_center()
+	# real art at res://assets/icons/ui/<kind>.png overrides the drawn glyph
+	var tex := _icon_tex()
+	if tex != null:
+		var pad := size.x * 0.16
+		var box := Rect2(Vector2(pad, pad), size - Vector2(pad, pad) * 2.0)
+		var tint := Color.WHITE if not (kind == "mute" and _active) else Color(0.55, 0.55, 0.58)
+		draw_texture_rect(tex, box, false, tint)
+		if kind == "mute" and _active:
+			var red := Color8(196, 90, 90)
+			draw_line(box.position + Vector2(4, 4), box.end - Vector2(4, 4), red, 4.0)
+		return
 	if kind == "fullscreen":
 		_draw_fullscreen(c)
 	else:
 		_draw_mute(c)
+
+
+func _icon_tex() -> Texture2D:
+	if not _tex_checked:
+		_tex_checked = true
+		var p := "res://assets/icons/ui/%s.png" % kind
+		if ResourceLoader.exists(p):
+			_tex = load(p)
+	return _tex
 
 
 func _draw_fullscreen(c: Vector2) -> void:

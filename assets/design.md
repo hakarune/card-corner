@@ -8,40 +8,51 @@ it show up, with no code changes needed for anything already listed below.
 ## The short version
 
 1. Make your art at the size given in the tables further down. Export it
-   as **PNG** (use this for anything that needs transparency — every icon,
-   and card fronts) or **JPG** (fine for edge-to-edge, fully opaque
-   pieces like card-back patterns).
-2. Save it straight into `ui/assets/<category>/<key>.<png|jpg>`, using the
-   exact `key` from the tables — lowercase, underscores, no spaces. That
-   folder **is** what the game loads. There is no build or convert step.
-3. Launch the game and look. If a file is missing, corrupted, or you just
-   haven't made it yet, **the game silently falls back to the built-in
-   procedural drawing** for that one piece — nothing crashes, nothing
-   looks broken.
+   as **PNG** (anything that needs transparency — every icon, card
+   fronts, UI glyphs), **JPG** (edge-to-edge, fully opaque pieces like
+   card-back patterns), or **SVG** (Godot rasterizes SVG on import).
+2. Save it straight into **`godot/assets/<category>/<key>.<ext>`**, using
+   the exact `key` from the tables — lowercase, underscores, no spaces.
+   That folder **is** what the game loads (`res://assets/...`). There is
+   no build/convert/copy step.
+3. Open the project in Godot (or let CI import it) and look. If a file is
+   missing or hasn't been made yet, the game silently falls back to a
+   built-in drawn version for that one piece — nothing crashes.
 
-That's it. Commit the PNG/JPG and you're done.
+That's it. Commit the file under `godot/assets/` (plus its generated
+`.import` sidecar) and you're done.
 
-## Where things live
+## Where things live — one folder, no copy script
+
+There is exactly **one** place for art the game uses: **`godot/assets/`**.
+Godot's exporter bundles that whole tree into *every* build automatically
+— the Linux binary, the Windows `.exe`, the `.deb`, and the Web build's
+`index.pck`. There is no separate "web/canvas" image folder to populate;
+the web export packs `godot/assets/` into `public/index.pck` and GitHub
+Pages just serves that. Nothing to copy anywhere.
 
 ```
-ui/assets/              <- THE ART THE GAME LOADS. Commit PNG/JPG here, by category/key.
-  cards/backs/
-  cards/fronts/
-  icons/items/
-  icons/animals/
-  icons/launcher/
-  icons/special/
-assets/
-  design.md             <- this file
-  image-list.md         <- running wishlist of future icons (not all wired into code -- see note)
-  Designing/            <- your editable originals: .svg, .afdesign, layered exports, etc.
-                           NOT used by the game. Keep whatever you like here; this is the
-                           stuff to sync between machines / share with other projects.
-  ATTRIBUTIONS.md
+godot/assets/           <- THE ART THE GAME LOADS + SHIPS. Commit files here, by category/key.
+  cards/backs/          go_fish / old_maid / memory  (.png or .jpg)
+  cards/fronts/         old_maid                     (.png)
+  icons/launcher/       go_fish / old_maid / memory / letter_match  (.png)
+  icons/items/          the 13 Go Fish / Memory item icons  (.png, not made yet)
+  icons/animals/        the 7 Letter Match animals          (.png, not made yet)
+  icons/special/        old_maid_card                        (.png, not made yet)
+  icons/ui/             mute / fullscreen menu-toggle glyphs (.png, optional override)
+  audio/                *.wav  (baked from audio/synth.gd by tools/bake_audio.gd)
+
+assets/                 <- REPO ROOT. Source-of-truth for EDITABLE ORIGINALS only.
+  Designing/            your .svg / .afdesign / layered exports. NOT loaded by the game,
+                        NOT shipped. This is the folder to sync between machines and
+                        share with the other project.
+  design.md  image-list.md  ATTRIBUTIONS.md
 ```
 
-`ui/assets/` is inside the Python package, so whatever you commit there
-ships with the app and the `.deb` automatically.
+Workflow: keep the editable master in `assets/Designing/` (or wherever you
+like), export a flat PNG/JPG/SVG, drop it in the matching
+`godot/assets/<category>/` with the right key name, commit. Done — it's
+now in the game and every platform build.
 
 ### PNG or JPG?
 
@@ -57,15 +68,14 @@ Both load directly, so pick per asset by what the art needs:
 - If both `<key>.png` and `<key>.jpg` exist, **PNG wins** — delete the one
   you're not using to avoid confusion.
 
-### The optional SVG converter
+### SVG is fine too
 
-`tools/build_assets.py` (needs `pip install -e ".[assets]"` for cairosvg)
-can rasterize `.svg` files placed under `assets/source/<category>/<key>.svg`
-into `ui/assets/` PNGs, applying the per-asset treatments noted below. It
-is **not part of any normal flow** — the game, `run.sh`, and the `.deb`
-build all just load what's committed under `ui/assets/`. It's kept only
-for anyone who'd rather keep vector sources and batch-convert. If you use
-it, `assets/source/` is yours to create and manage.
+Godot imports `.svg` as a texture (rasterized on import; set the import
+`scale` if you need it bigger). So you can drop a `.svg` straight into
+`godot/assets/<category>/<key>.svg` and skip exporting a PNG — the game
+loader tries `.png`, then `.svg`, then `.jpg` for each key. Keep the
+editable master (with layers) in `assets/Designing/`; the file under
+`godot/assets/` is the flattened one the game ships.
 
 ## Card backs
 
@@ -75,9 +85,9 @@ with no padding.
 
 | Key | Used by | Real on-screen size | Make it at (4x headroom) | File |
 |---|---|---|---|---|
-| `go_fish` | Go Fish card backs | 70 × 100 | **280 × 400** | `ui/assets/cards/backs/go_fish.png` (or `.jpg`) |
-| `old_maid` | Old Maid card backs | 70 × 100 | **280 × 400** | `ui/assets/cards/backs/old_maid.png` (or `.jpg`) |
-| `memory` | Memory face-down tiles | 125 × 125 (square) | **500 × 500** | `ui/assets/cards/backs/memory.png` (or `.jpg`) |
+| `go_fish` | Go Fish card backs | 70 × 100 | **280 × 400** | `godot/assets/cards/backs/go_fish.png` (or `.jpg`) |
+| `old_maid` | Old Maid card backs | 70 × 100 | **280 × 400** | `godot/assets/cards/backs/old_maid.png` (or `.jpg`) |
+| `memory` | Memory face-down tiles | 125 × 125 (square) | **500 × 500** | `godot/assets/cards/backs/memory.png` (or `.jpg`) |
 
 Why 4x: the game renders to a fixed 1024×720 canvas and then scales that
 whole canvas up to fill the real window — on a large/4K monitor that's a
@@ -105,7 +115,7 @@ front. Only the Old Maid card has its own front art today.
 
 | Key | Used by | Real on-screen size | Make it at (4x headroom) | File |
 |---|---|---|---|---|
-| `old_maid` | The Old Maid card's face in every player's hand | 70 × 100 | **280 × 400** | `ui/assets/cards/fronts/old_maid.png` |
+| `old_maid` | The Old Maid card's face in every player's hand | 70 × 100 | **280 × 400** | `godot/assets/cards/fronts/old_maid.png` |
 
 - **Portrait, card-shaped** (PNG — it needs rounded-corner transparency).
   The illustration should read as a whole card face.
@@ -135,7 +145,7 @@ cards and Memory face-up tiles — both games share the same 13-item set.
 |---|---|
 | `sun`, `moon`, `star`, `heart`, `flower`, `fish`, `bird`, `tree`, `house`, `umbrella`, `apple`, `ball`, `boat` | Go Fish + Memory item deck (13 ranks) |
 
-Path: `ui/assets/icons/items/<key>.png`
+Path: `godot/assets/icons/items/<key>.png`
 
 ### Animal icons (Letter Match's "Animals" mode)
 
@@ -143,7 +153,7 @@ Path: `ui/assets/icons/items/<key>.png`
 |---|---|
 | `bird`, `cat`, `dog`, `fish`, `lion`, `owl`, `pig` | Letter Match's Animal↔Letter mode (7 letters) |
 
-Path: `ui/assets/icons/animals/<key>.png`
+Path: `godot/assets/icons/animals/<key>.png`
 
 `bird` and `fish` appear in both sets — they can be the same artwork in
 both folders if you want; nothing requires them to differ.
@@ -160,7 +170,7 @@ button — the colored tile background and label text stay code-drawn).
 | `memory` | Memory |
 | `letter_match` | Letter Match |
 
-Path: `ui/assets/icons/launcher/<key>.png` — all four exist as real art.
+Path: `godot/assets/icons/launcher/<key>.png` — all four exist as real art.
 
 ### The Old Maid card's own illustration
 
@@ -168,7 +178,7 @@ Path: `ui/assets/icons/launcher/<key>.png` — all four exist as real art.
 |---|---|
 | `old_maid_card` | Face on the actual Old Maid card (fallback for the `old_maid` card front above) |
 
-Path: `ui/assets/icons/special/old_maid_card.png`
+Path: `godot/assets/icons/special/old_maid_card.png`
 
 ### About `image-list.md`
 
