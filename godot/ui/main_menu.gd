@@ -1,9 +1,9 @@
 extends Control
 ## Main menu: pick one of the four games. Ported from LauncherScreen
-## (legacy/ui/launcher.py). Icons + color coding lead; label underneath.
-## (Update-check UI is intentionally not ported -- deferred; the legacy
-## procedural launcher-icon fallbacks aren't ported either since real
-## launcher art exists at res://assets/icons/launcher/.)
+## (legacy/ui/launcher.py). The launcher icons carry the game identity now,
+## so tiles are a clean white card with a thin game-colour accent border --
+## no solid colour fill behind the icon.
+## (Update-check UI is intentionally not ported -- deferred.)
 
 const GAMES := [
 	{"key": "go_fish", "label": "Go Fish"},
@@ -14,7 +14,10 @@ const GAMES := [
 
 const TILE_W := 420.0
 const TILE_H := 220.0
-const GAP := 40.0
+const GAP := 44.0
+
+var _mute_btn: MenuToggle
+var _full_btn: MenuToggle
 
 
 func _ready() -> void:
@@ -31,31 +34,29 @@ func _build() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
-	_center_label("Card Corner", 90, 64, ThemeData.TEXT_DARK)
-	_center_label("Pick a game to play!", 145, 28, ThemeData.TEXT_MUTED)
+	_center_label("Card Corner", 40, 58, ThemeData.TEXT_DARK)
+	_center_label("Pick a game to play!", 108, 26, ThemeData.TEXT_MUTED)
 
 	var grid_w := 2 * TILE_W + GAP
 	var start_x := (ThemeData.WINDOW_SIZE.x - grid_w) * 0.5
-	var start_y := 190.0
+	var start_y := 168.0
 
 	for i in GAMES.size():
 		var g: Dictionary = GAMES[i]
 		var col := i % 2
 		var row := i / 2
 		var pos := Vector2(start_x + col * (TILE_W + GAP), start_y + row * (TILE_H + GAP))
+		var accent: Color = ThemeData.GAME_COLORS[g["key"]]
 
 		var btn := Button.new()
 		btn.position = pos
 		btn.size = Vector2(TILE_W, TILE_H)
 		btn.focus_mode = Control.FOCUS_NONE
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = ThemeData.GAME_COLORS[g["key"]]
-		sb.set_corner_radius_all(20)
-		sb.set_border_width_all(3)
-		sb.border_color = ThemeData.TEXT_DARK
-		btn.add_theme_stylebox_override("normal", sb)
-		btn.add_theme_stylebox_override("hover", sb)
-		btn.add_theme_stylebox_override("pressed", sb)
+		var normal := _tile_box(accent, false)
+		btn.add_theme_stylebox_override("normal", normal)
+		btn.add_theme_stylebox_override("disabled", normal)
+		btn.add_theme_stylebox_override("hover", _tile_box(accent, true))
+		btn.add_theme_stylebox_override("pressed", _tile_box(accent, true))
 		btn.pressed.connect(_select.bind(g["key"]))
 		add_child(btn)
 
@@ -63,45 +64,55 @@ func _build() -> void:
 		if art != null:
 			var tr := TextureRect.new()
 			tr.texture = art
-			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			tr.position = pos + Vector2(20, 10)
-			tr.size = Vector2(TILE_W - 40, TILE_H - 90)
+			tr.position = pos + Vector2(16, 12)
+			tr.size = Vector2(TILE_W - 32, TILE_H - 78)
 			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(tr)
 
 		var lbl := Label.new()
 		lbl.text = g["label"]
 		lbl.position = pos + Vector2(0, TILE_H - 56)
-		lbl.size = Vector2(TILE_W, 40)
+		lbl.size = Vector2(TILE_W, 44)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.add_theme_font_size_override("font_size", 34)
-		lbl.add_theme_color_override("font_color", ThemeData.TEXT_LIGHT)
+		lbl.add_theme_font_size_override("font_size", 32)
+		lbl.add_theme_color_override("font_color", ThemeData.TEXT_DARK)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(lbl)
 
 	_build_toggles()
 
 
-func _build_toggles() -> void:
-	var s := float(ThemeData.MIN_TOUCH_TARGET)
-	var full := Button.new()
-	full.text = "⛶"
-	full.position = Vector2(ThemeData.WINDOW_SIZE.x - s - 24, 24)
-	full.size = Vector2(s, s)
-	full.focus_mode = Control.FOCUS_NONE
-	full.pressed.connect(_toggle_fullscreen)
-	add_child(full)
+func _tile_box(accent: Color, hovered: bool) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = ThemeData.PANEL if not hovered else accent.lerp(ThemeData.PANEL, 0.82)
+	sb.set_corner_radius_all(22)
+	sb.set_border_width_all(4)
+	sb.border_color = accent
+	sb.shadow_color = Color(0, 0, 0, 0.12)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 3)
+	return sb
 
-	var mute := Button.new()
-	mute.text = "🔇" if CCAudio.muted else "🔊"
-	mute.position = Vector2(ThemeData.WINDOW_SIZE.x - 2 * s - 40, 24)
-	mute.size = Vector2(s, s)
-	mute.focus_mode = Control.FOCUS_NONE
-	mute.pressed.connect(func():
+
+func _build_toggles() -> void:
+	var s := 64.0
+	_full_btn = MenuToggle.new()
+	_full_btn.kind = "fullscreen"
+	_full_btn.position = Vector2(ThemeData.WINDOW_SIZE.x - s - 24, 24)
+	_full_btn.size = Vector2(s, s)
+	_full_btn.pressed.connect(_toggle_fullscreen)
+	add_child(_full_btn)
+
+	_mute_btn = MenuToggle.new()
+	_mute_btn.kind = "mute"
+	_mute_btn.position = Vector2(ThemeData.WINDOW_SIZE.x - 2 * s - 40, 24)
+	_mute_btn.size = Vector2(s, s)
+	_mute_btn.set_active(CCAudio.muted)
+	_mute_btn.pressed.connect(func():
 		CCAudio.set_muted(not CCAudio.muted)
-		mute.text = "🔇" if CCAudio.muted else "🔊")
-	add_child(mute)
+		_mute_btn.set_active(CCAudio.muted))
+	add_child(_mute_btn)
 
 
 func _center_label(txt: String, y: float, px: int, color: Color) -> void:
@@ -126,10 +137,10 @@ func _launcher_art(key: String) -> Texture2D:
 
 func _toggle_fullscreen() -> void:
 	var m := DisplayServer.window_get_mode()
-	if m == DisplayServer.WINDOW_MODE_FULLSCREEN or m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	else:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	var fs := m == DisplayServer.WINDOW_MODE_FULLSCREEN or m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	DisplayServer.window_set_mode(
+		DisplayServer.WINDOW_MODE_WINDOWED if fs else DisplayServer.WINDOW_MODE_FULLSCREEN)
+	_full_btn.set_active(not fs)
 
 
 func _select(key: String) -> void:

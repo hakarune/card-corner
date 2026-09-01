@@ -45,6 +45,11 @@ func _fresh(path: String, cfg := {}) -> Node:
 func _test_menu_and_difficulty() -> void:
 	var menu := await _fresh("res://ui/main_menu.tscn")
 	_ok(menu.get_child_count() > 4, "main menu builds tiles + labels")
+	var toggles := 0
+	for c in menu.get_children():
+		if c is MenuToggle:
+			toggles += 1
+	_ok(toggles == 2, "main menu has the fullscreen + mute toggle buttons")
 	menu.free()
 
 	var diff := await _fresh("res://ui/difficulty_select.tscn", {"game": "memory"})
