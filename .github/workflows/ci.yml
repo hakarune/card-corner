@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  godot-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Godot + templates
+        run: bash tools/ci_setup_godot.sh
+
+      - name: Import project (build class cache, reimport assets)
+        working-directory: godot
+        run: |
+          "$GODOT_BIN" --headless --editor --quit || true
+
+      - name: Compile gate (load every script + scene)
+        working-directory: godot
+        run: |
+          out="$("$GODOT_BIN" --headless --script res://tests/test_compile_all.gd 2>&1)"
+          echo "$out"
+          echo "$out" | grep -q "0 failed" || { echo "compile gate failed"; exit 1; }
+
+      - name: Unit + logic tests
+        working-directory: godot
+        run: |
+          fail=0
+          for t in core go_fish go_fish_ai old_maid memory letter_match audio; do
+            echo "== $t =="
+            "$GODOT_BIN" --headless --script "res://tests/test_${t}.gd" || fail=1
+          done
+          exit $fail
+
+      - name: Screen smoke tests (headless drive of every screen)
+        working-directory: godot
+        run: |
+          "$GODOT_BIN" --headless --script res://tests/test_screens.gd
+
+      - name: Go Fish full-game scene smoke
+        working-directory: godot
+        run: |
+          "$GODOT_BIN" --headless --script res://tests/test_go_fish_scene.gd

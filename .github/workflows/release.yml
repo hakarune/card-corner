@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches godot/project.godot version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(sed -n 's/.*config\/version="\([^"]*\)".*/\1/p' godot/project.godot)"
+          [ "$TAG" = "$PKG" ] || { echo "tag v$TAG != project version $PKG"; exit 1; }
+
+      - name: Set up Godot + templates
+        run: bash tools/ci_setup_godot.sh
+
+      - name: Extra tools (deb packaging, icon raster)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg-dev librsvg2-bin
+
+      - name: Import project
+        working-directory: godot
+        run: |
+          "$GODOT_BIN" --headless --editor --quit || true
+
+      - name: Export Linux / Windows / Web
+        working-directory: godot
+        run: |
+          mkdir -p ../dist ../dist/web
+          "$GODOT_BIN" --headless --export-release "Linux"           ../dist/card-corner.x86_64
+          "$GODOT_BIN" --headless --export-release "Windows Desktop" ../dist/card-corner.exe
+          "$GODOT_BIN" --headless --export-release "Web"             ../dist/web/index.html
+
+      - name: Package .deb
+        run: sh tools/package_deb.sh dist/card-corner.x86_64 dist
+
+      - name: Bundle the web build
+        run: cd dist && zip -r card-corner-web.zip web
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/card-corner_*_amd64.deb
+            dist/card-corner.x86_64
+            dist/card-corner.exe
+            dist/card-corner-web.zip

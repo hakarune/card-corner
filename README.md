@@ -16,15 +16,37 @@ per-tier so no two games play out the same way.
 
 ## Repository layout
 
-This project is mid-migration from Python/Pygame to **Godot 4.7**:
+This project has been migrated from Python/Pygame to **Godot 4.7**:
 
-- **`godot/`** — the Godot 4.7 port (in progress). Target platforms:
-  Linux `.deb`, Windows `.exe`, and Web.
+- **`godot/`** — the Godot 4.7 project. Open `godot/project.godot` in the
+  editor and press Play. See `godot/SUMMARY.md` for port status, what's
+  verified, and the first-run checklist.
 - **`legacy/`** — the original Python/Pygame implementation, archived
   intact for reference. Still runnable (`cd legacy && ./run.sh`); its
-  test suite is the behavioural spec the port is validated against.
+  pytest suite is the behavioural spec the port was validated against.
 - **`assets/`** — shared art: editable originals under `assets/Designing/`,
   the art guide in `assets/design.md`.
+
+### Building
+
+The exports produce **Linux**, **Windows**, and **Web** builds from one
+codebase.
+
+- Locally (needs Godot 4.7.x + its export templates):
+  `cd godot && godot --headless --export-release "Linux" ../dist/card-corner.x86_64`
+  (also `"Windows Desktop"` → `.exe`, `"Web"` → `dist/web/index.html`).
+- `.deb`: `sh tools/package_deb.sh dist/card-corner.x86_64 dist`.
+- CI: push a `vX.Y.Z` tag → `.github/workflows/release.yml` builds all
+  three targets + the `.deb` and attaches them to a GitHub Release. Every
+  push to `main` redeploys the web build to
+  <https://hakarune.github.io/card-corner/> via `pages.yml`.
+
+### Tests
+
+`cd godot` then run the headless suites, e.g.
+`godot --headless --script res://tests/test_compile_all.gd` and
+`... res://tests/test_go_fish.gd` (see `godot/tests/`). CI runs all of
+them on every push.
 
 ## Requirements (legacy Python version)
 
