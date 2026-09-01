@@ -40,7 +40,7 @@ func _ready() -> void:
 
 func _start_game() -> void:
 	_game = OldMaidGame.new([HUMAN_NAME, AI_NAME], {AI_NAME: difficulty})
-	_msg = "Draw a card from %s's hand — click the pile!" % AI_NAME
+	_msg = "Tap the Draw button to take a card from %s." % AI_NAME
 	_waiting_for_ai = false
 	_modal.visible = false
 	set_process(true)
@@ -132,7 +132,6 @@ func _refresh() -> void:
 		v.size = Vector2(70, 100)
 		v.position = Vector2(i * gap, 0)
 		v.setup(CardView.Mode.BACK, _theme)
-		v.set_highlighted(can_draw)
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_ai_backs.add_child(v)
 

@@ -69,6 +69,10 @@ func _on_tile_clicked(view: CardView) -> void:
 	if result.matched:
 		_msg = "Great match!"
 		CCAudio.play_sfx("match")
+		# LetterMatchGame.click() reshuffles the still-unmatched tiles after
+		# a success -- re-sync every visible tile from the (permuted) board
+		# or the player sees stale glyphs and taps the wrong position.
+		_sync_tiles()
 		_refresh()
 		if _game.game_over:
 			_locked = true
@@ -101,6 +105,18 @@ func _process(delta: float) -> void:
 			_pending = Callable()
 			_locked = false
 			cb.call()
+
+
+func _sync_tiles() -> void:
+	var color: Color = ThemeData.GAME_COLORS["letter_match"]
+	for i in _tiles.size():
+		if _game.matched.has(i):
+			continue
+		var t: LetterMatchGame.Tile = _game.board[i]
+		if t.is_animal:
+			_tiles[i].setup_letter(CardView.Mode.ANIMAL, "", t.letter, color)
+		else:
+			_tiles[i].setup_letter(CardView.Mode.LETTER, t.display(), "", color)
 
 
 func _refresh() -> void:

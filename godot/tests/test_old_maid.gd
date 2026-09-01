@@ -158,6 +158,29 @@ func _init() -> void:
 			t += 1
 		check(good and gN.game_over and _accounted(gN), "full %d-player game conserves cards and ends" % np)
 
+	# --- 3p: one draw empties two hands at once -> sole survivor loses ---
+	g = _make_game(7, ["A", "B", "C"])
+	_set_hand(g, "A", [Card.new(S.HEARTS, RK.FOUR)])          # A draws C's 4 -> A pairs -> A empty
+	_set_hand(g, "B", [Card.make_odd_card()])                 # B stuck with the odd card
+	_set_hand(g, "C", [Card.new(S.CLUBS, RK.FOUR)])           # C loses its only card to A
+	g.turn_index = g.order.find("A")
+	g.game_over = false
+	g.draw("A", "C")
+	check(g.game_over and g.loser == "B", "3p simultaneous double-empty leaves the odd-card holder as loser")
+
+	# --- stalemate reached through real play without hanging ---
+	var gs := OldMaidGame.new(["Fox1", "Fox2"], {"Fox1": D.EASY, "Fox2": D.EASY}, 1)
+	gs.players["Fox1"].hand.cards.assign([Card.new(S.HEARTS, RK.TWO), Card.make_odd_card()])
+	gs.players["Fox2"].hand.cards.assign([Card.new(S.CLUBS, RK.THREE), Card.new(S.SPADES, RK.THREE)])
+	# Fox2 has a pair -> discards on its first turn; then both hold 1 disjoint card forever.
+	gs.turn_index = gs.order.find("Fox1")
+	gs.game_over = false
+	var st := 0
+	while not gs.game_over and st < OldMaidGame.MAX_TURNS + 5:
+		gs.take_ai_turn()
+		st += 1
+	check(gs.game_over, "disjoint-hands stalemate terminates at the turn cap via real draws")
+
 	# --- determinism ---
 	var a := OldMaidGame.new(["A", "B"], {"A": D.HARD, "B": D.MEDIUM}, 555)
 	var b := OldMaidGame.new(["A", "B"], {"A": D.HARD, "B": D.MEDIUM}, 555)

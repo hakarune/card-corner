@@ -8,6 +8,12 @@ func _make_game(seed_val := 7) -> MemoryGame:
 	return MemoryGame.new(["Ellie", "Fox"], 8, {"Fox": D.EASY}, seed_val)
 
 
+func _seeded(s: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = s
+	return rng
+
+
 func _find_pair(game: MemoryGame) -> Array:
 	var r1: int = game.board[0].rank
 	for i in range(1, game.board.size()):
@@ -90,6 +96,40 @@ func _init() -> void:
 			gN.take_ai_turn()
 			tn += 1
 		check(gN.game_over and gN.matched.size() == gN.board.size(), "full %d-player game clears the board" % np)
+
+	# --- AI: recall tier -- HARD acts on a known pair far more than EASY ---
+	# board positions 0 and 5 are a known pair; the rest unknown.
+	var known := {0: 3, 5: 3}
+	var unflipped := range(16)
+	var hard_hits := 0
+	var easy_hits := 0
+	var hard_bad := 0
+	for seed in range(800):
+		var h := MemoryStrategy.new(D.HARD, _seeded(seed))
+		var e := MemoryStrategy.new(D.EASY, _seeded(seed))
+		var dh := h.decide_flips(known, unflipped)
+		var de := e.decide_flips(known, unflipped)
+		if (dh["pos1"] == 0 and dh["pos2"] == 5) or (dh["pos1"] == 5 and dh["pos2"] == 0):
+			hard_hits += 1
+		if (de["pos1"] == 0 and de["pos2"] == 5) or (de["pos1"] == 5 and de["pos2"] == 0):
+			easy_hits += 1
+		for p in [dh["pos1"], dh["pos2"], de["pos1"], de["pos2"]]:
+			if p < 0 or p >= 16:
+				hard_bad += 1
+	check(hard_hits > easy_hits and hard_hits < 800, "MEMORY AI: HARD plays the known pair more than EASY, not always")
+	check(hard_bad == 0, "MEMORY AI: never returns an out-of-range position")
+
+	# --- AI: never returns a matched position ---
+	var mg := _make_game()
+	var pr := _find_pair(mg)
+	mg.flip_two(mg.current_player_name(), pr[0], pr[1])  # matches -> those positions now in mg.matched
+	var strat := MemoryStrategy.new(D.HARD, _seeded(9))
+	var ok2 := true
+	for _n in 200:
+		var dd := strat.decide_flips(mg.known_positions, mg.unflipped_positions())
+		if mg.matched.has(dd["pos1"]) or mg.matched.has(dd["pos2"]) or dd["pos1"] == dd["pos2"]:
+			ok2 = false
+	check(ok2, "MEMORY AI: only returns distinct, still-unflipped positions")
 
 	# --- determinism ---
 	var x := MemoryGame.new(["A", "B"], 8, {"A": D.HARD, "B": D.MEDIUM}, 321)

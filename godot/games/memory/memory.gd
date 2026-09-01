@@ -81,29 +81,38 @@ func _maybe_start_ai_turn() -> void:
 		_schedule(AI_TURN_DELAY, _run_ai_turn)
 
 
+var _ai_result: MemoryFlip.Result = null
+
+
 func _run_ai_turn() -> void:
-	var result := _game.take_ai_turn()
-	if result == null:
+	_ai_result = _game.take_ai_turn()
+	if _ai_result == null:
 		_maybe_start_ai_turn()
 		return
-	_visible[result.pos1] = true
+	_visible[_ai_result.pos1] = true
 	CCAudio.play_sfx("card_move")
 	_refresh()
-	_schedule(REVEAL_GAP, func():
-		_visible[result.pos2] = true
-		CCAudio.play_sfx("card_move")
-		_refresh()
-		_schedule(RESOLVE_PAUSE, func():
-			if result.matched:
-				_msg = "%s found a match!" % AI_NAME
-				CCAudio.play_sfx("match")
-			else:
-				_visible.erase(result.pos1)
-				_visible.erase(result.pos2)
-				_msg = "%s didn't find a match." % AI_NAME
-				CCAudio.play_sfx("miss")
-			_maybe_start_ai_turn()
-			_refresh()))
+	_schedule(REVEAL_GAP, _ai_reveal_second)
+
+
+func _ai_reveal_second() -> void:
+	_visible[_ai_result.pos2] = true
+	CCAudio.play_sfx("card_move")
+	_refresh()
+	_schedule(RESOLVE_PAUSE, _ai_resolve)
+
+
+func _ai_resolve() -> void:
+	if _ai_result.matched:
+		_msg = "%s found a match!" % AI_NAME
+		CCAudio.play_sfx("match")
+	else:
+		_visible.erase(_ai_result.pos1)
+		_visible.erase(_ai_result.pos2)
+		_msg = "%s didn't find a match." % AI_NAME
+		CCAudio.play_sfx("miss")
+	_maybe_start_ai_turn()
+	_refresh()
 
 
 func _on_tile_clicked(view: CardView) -> void:

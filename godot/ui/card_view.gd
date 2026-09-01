@@ -75,9 +75,7 @@ func _font() -> Font:
 
 
 func _draw_center_text(t: String, px: int, color: Color, offset_y := 0.0) -> void:
-	var f := _font()
-	var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, px)
-	f.draw_string(get_canvas_item(), Vector2(0, size.y * 0.5 + px * 0.35 + offset_y),
+	_font().draw_string(get_canvas_item(), Vector2(0, size.y * 0.5 + px * 0.35 + offset_y),
 		t, HORIZONTAL_ALIGNMENT_CENTER, size.x, px, color)
 
 

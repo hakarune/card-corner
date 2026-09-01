@@ -160,6 +160,44 @@ func _init() -> void:
 			unchanged = false
 	check(unchanged, "a miss does not reshuffle the board")
 
+	# --- a match DOES reshuffle the remaining unmatched tiles ---
+	g = LetterMatchGame.new(6, 77)
+	# match tile 0 with its partner
+	var pp := -1
+	for j in range(1, g.board.size()):
+		if g.board[j].letter == g.board[0].letter:
+			pp = j
+			break
+	var snapshot := {}
+	for i in g.board.size():
+		snapshot[i] = g.board[i]
+	g.click(0)
+	g.click(pp)
+	var moved := 0
+	for i in g.board.size():
+		if not g.matched.has(i) and g.board[i] != snapshot[i]:
+			moved += 1
+	check(moved > 0, "a successful match reshuffles the remaining unmatched tiles")
+	var matched_stayed := true
+	for i in g.board.size():
+		if g.matched.has(i) and g.board[i] != snapshot[i]:
+			matched_stayed = false
+	check(matched_stayed, "matched tiles are left undisturbed by the reshuffle")
+
+	# --- input fuzzing never crashes or gets stuck ---
+	var fz := LetterMatchGame.new(6, 2024)
+	var frng := RandomNumberGenerator.new()
+	frng.seed = 5
+	var invariants_held := true
+	for _n in 2000:
+		fz.click(frng.randi_range(-3, fz.board.size() + 3))
+		if fz.matched.size() > fz.board.size() or fz.correct > fz.attempts:
+			invariants_held = false
+	check(invariants_held, "2000 random clicks never break matched<=n / correct<=attempts")
+	# after the noise, the board is still solvable
+	_solve(fz)
+	check(fz.game_over and fz.matched.size() == fz.board.size(), "board still completes after 2000 random clicks")
+
 	# --- determinism ---
 	var a := LetterMatchGame.new(8, 4242)
 	var b := LetterMatchGame.new(8, 4242)
