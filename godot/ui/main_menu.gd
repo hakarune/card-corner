@@ -65,6 +65,11 @@ func _build() -> void:
 			var tr := TextureRect.new()
 			tr.texture = art
 			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			# EXPAND_IGNORE_SIZE: without this the 512px source sets the rect's
+			# minimum size, so `size` below is ignored and the art spills out of
+			# the tile, over its neighbours and the label. Clip as a backstop.
+			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tr.clip_contents = true
 			tr.position = pos + Vector2(16, 12)
 			tr.size = Vector2(TILE_W - 32, TILE_H - 78)
 			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
