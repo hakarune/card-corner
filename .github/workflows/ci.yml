@@ -46,3 +46,68 @@ jobs:
         working-directory: godot
         run: |
           "$GODOT_BIN" --headless --script res://tests/test_go_fish_scene.gd
+
+  # Build all three package types on every push/PR (as downloadable
+  # workflow artifacts). A vX.Y.Z tag additionally publishes them to a
+  # GitHub Release (release.yml) and pushes to main redeploy the web
+  # build to GitHub Pages (pages.yml).
+  package:
+    needs: godot-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Godot + templates
+        run: bash tools/ci_setup_godot.sh
+
+      - name: Extra tools (deb packaging, icon raster)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg-dev librsvg2-bin
+
+      - name: Import project
+        working-directory: godot
+        run: |
+          "$GODOT_BIN" --headless --import || true
+          "$GODOT_BIN" --headless --editor --quit || true
+
+      - name: Build Linux / Windows / Web
+        working-directory: godot
+        run: |
+          mkdir -p ../dist ../dist/web
+          "$GODOT_BIN" --headless --export-release "Linux"           ../dist/card-corner.x86_64
+          "$GODOT_BIN" --headless --export-release "Windows Desktop" ../dist/card-corner.exe
+          "$GODOT_BIN" --headless --export-release "Web"             ../dist/web/index.html
+          test -s ../dist/web/index.wasm
+          test -s ../dist/web/index.pck
+          test -s ../dist/web/index.js
+          test -s ../dist/card-corner.x86_64
+          test -s ../dist/card-corner.exe
+
+      - name: Package .deb
+        run: |
+          sh tools/package_deb.sh dist/card-corner.x86_64 dist
+          dpkg-deb -I dist/card-corner_*_amd64.deb
+          dpkg-deb -c dist/card-corner_*_amd64.deb | head
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-corner-deb
+          path: dist/card-corner_*_amd64.deb
+
+      - name: Upload Windows .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-corner-windows
+          path: dist/card-corner.exe
+
+      - name: Upload Linux binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-corner-linux
+          path: dist/card-corner.x86_64
+
+      - name: Upload Web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-corner-web
+          path: dist/web
