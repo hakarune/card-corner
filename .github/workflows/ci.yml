@@ -14,9 +14,10 @@ jobs:
       - name: Set up Godot + templates
         run: bash tools/ci_setup_godot.sh
 
-      - name: Import project (build class cache, reimport assets)
+      - name: Import project (build class cache, import assets)
         working-directory: godot
         run: |
+          "$GODOT_BIN" --headless --import || true
           "$GODOT_BIN" --headless --editor --quit || true
 
       - name: Compile gate (load every script + scene)
@@ -30,7 +31,7 @@ jobs:
         working-directory: godot
         run: |
           fail=0
-          for t in core go_fish go_fish_ai old_maid memory letter_match audio; do
+          for t in core go_fish go_fish_ai old_maid memory letter_match audio audio_manager; do
             echo "== $t =="
             "$GODOT_BIN" --headless --script "res://tests/test_${t}.gd" || fail=1
           done

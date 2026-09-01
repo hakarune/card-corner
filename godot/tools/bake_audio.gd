@@ -25,11 +25,9 @@ func _init() -> void:
 				S.note("C5", 0.3), S.note("D5", 0.3), S.note("E5", 0.3), S.note("G5", 0.5),
 				S.note("F5", 0.3), S.note("E5", 0.3), S.note("D5", 0.3), S.note("C5", 0.5),
 			]
-			var w := S.sequence(melody, S.Wave.SQUARE, 0.35, 0.01)
-			w.loop_mode = AudioStreamWAV.LOOP_FORWARD
-			w.loop_begin = 0
-			w.loop_end = w.data.size() / 2
-			return w,
+			# The forward loop is applied at import time
+			# (assets/audio/music_loop.wav.import: edit/loop_mode=2).
+			return S.sequence(melody, S.Wave.SQUARE, 0.35, 0.01),
 	}
 
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))

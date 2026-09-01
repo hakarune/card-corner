@@ -28,6 +28,7 @@ jobs:
       - name: Import project
         working-directory: godot
         run: |
+          "$GODOT_BIN" --headless --import || true
           "$GODOT_BIN" --headless --editor --quit || true
 
       - name: Export Linux / Windows / Web
@@ -37,6 +38,9 @@ jobs:
           "$GODOT_BIN" --headless --export-release "Linux"           ../dist/card-corner.x86_64
           "$GODOT_BIN" --headless --export-release "Windows Desktop" ../dist/card-corner.exe
           "$GODOT_BIN" --headless --export-release "Web"             ../dist/web/index.html
+          test -s ../dist/web/index.wasm
+          test -s ../dist/web/index.pck
+          test -s ../dist/web/index.js
 
       - name: Package .deb
         run: sh tools/package_deb.sh dist/card-corner.x86_64 dist
@@ -44,12 +48,20 @@ jobs:
       - name: Bundle the web build
         run: cd dist && zip -r card-corner-web.zip web
 
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum card-corner_*_amd64.deb card-corner.x86_64 card-corner.exe card-corner-web.zip > SHA256SUMS
+          cat SHA256SUMS
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          body: "Web build also live at https://hakarune.github.io/card-corner/"
           files: |
             dist/card-corner_*_amd64.deb
             dist/card-corner.x86_64
             dist/card-corner.exe
             dist/card-corner-web.zip
+            dist/SHA256SUMS

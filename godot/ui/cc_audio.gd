@@ -27,10 +27,10 @@ func _ready() -> void:
 	add_child(_music)
 
 
-func play_sfx(name: String) -> void:
+func play_sfx(key: String) -> void:
 	if muted:
 		return
-	var stream := _sound(name)
+	var stream := _sound(key)
 	if stream == null:
 		return
 	var p := _sfx_players[_sfx_idx]
@@ -65,28 +65,24 @@ func set_muted(value: bool) -> void:
 		start_music()
 
 
-func _sound(name: String) -> AudioStreamWAV:
-	if not _bank.has(name):
+func _sound(key: String) -> AudioStreamWAV:
+	if not _bank.has(key):
 		# Prefer a pre-baked .wav (tools/bake_audio.gd) -- GDScript
 		# per-sample synth is too slow to run at load time. Fall back to
 		# live synthesis if the baked file is missing.
-		var baked := "res://assets/audio/%s.wav" % name
+		var baked := "res://assets/audio/%s.wav" % key
 		if ResourceLoader.exists(baked):
-			var w := load(baked) as AudioStreamWAV
-			if name == "music_loop" and w != null:
-				# Godot's .wav import doesn't carry our loop flag through --
-				# re-assert it (loop_end 0 = to end of stream).
-				w.loop_mode = AudioStreamWAV.LOOP_FORWARD
-				w.loop_begin = 0
-			_bank[name] = w
+			# music_loop.wav.import sets edit/loop_mode=2 (Forward), so the
+			# loop is baked into the imported resource -- no runtime fix-up.
+			_bank[key] = load(baked)
 		else:
-			_bank[name] = _build(name)
-	return _bank[name]
+			_bank[key] = _build(key)
+	return _bank[key]
 
 
-func _build(name: String) -> AudioStreamWAV:
+func _build(key: String) -> AudioStreamWAV:
 	var S := Synth
-	match name:
+	match key:
 		"card_select":
 			return S.tone(880, 0.05, S.Wave.SINE, 0.6)
 		"card_move":
@@ -114,5 +110,5 @@ func _build(name: String) -> AudioStreamWAV:
 			w.loop_begin = 0
 			w.loop_end = w.data.size() / 2  # sample count
 			return w
-	push_error("CCAudio: unknown sound '%s'" % name)
+	push_error("CCAudio: unknown sound '%s'" % key)
 	return null

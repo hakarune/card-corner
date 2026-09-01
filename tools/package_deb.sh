@@ -64,7 +64,8 @@ Priority: optional
 Architecture: amd64
 Maintainer: Card Corner Maintainers <card-corner@users.noreply.github.com>
 Installed-Size: $INSTALLED_KB
-Depends: libc6, libgl1, libx11-6, libxcursor1, libxinerama1, libxrandr2, libxi6, libfontconfig1, libudev1, libdbus-1-3
+Homepage: https://github.com/hakarune/card-corner
+Depends: libc6, libgl1, libx11-6, libxext6, libxcursor1, libxinerama1, libxrandr2, libxi6, libfontconfig1, libudev1, libdbus-1-3
 Recommends: libasound2 | libasound2t64, libpulse0
 Description: Kid-friendly card game suite (Go Fish, Old Maid, Memory, Letter Match)
  Card Corner is a collection of four card games for ages 5-8, with

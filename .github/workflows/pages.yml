@@ -26,6 +26,7 @@ jobs:
       - name: Import project
         working-directory: godot
         run: |
+          "$GODOT_BIN" --headless --import || true
           "$GODOT_BIN" --headless --editor --quit || true
 
       - name: Export Web
@@ -34,6 +35,10 @@ jobs:
           mkdir -p ../public
           "$GODOT_BIN" --headless --export-release "Web" ../public/index.html
           ls -la ../public
+          # fail loudly rather than publish a blank canvas
+          test -s ../public/index.wasm
+          test -s ../public/index.pck
+          test -s ../public/index.js
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

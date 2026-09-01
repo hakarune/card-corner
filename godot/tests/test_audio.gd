@@ -51,6 +51,18 @@ func _init() -> void:
 	var expect := int(SR * 0.1) + gap_n + int(SR * 0.1) + gap_n
 	check(_samples(seq).size() == expect, "sequence: length = sum(note lengths + gaps)")
 
+	# --- sequence: a rest (freq <= 0) segment is silence ---
+	var with_rest := _samples(Synth.sequence([[0.0, 0.05], Synth.note("C5", 0.05)], Synth.Wave.SINE, 0.7, 0.0))
+	var rest_silent := true
+	for i in int(SR * 0.05):
+		if with_rest[i] != 0:
+			rest_silent = false
+	check(rest_silent, "sequence: a rest segment produces silence")
+
+	# --- different wave shapes produce different audio ---
+	check(Synth.tone(440, 0.05, Synth.Wave.SINE).data != Synth.tone(440, 0.05, Synth.Wave.SQUARE).data,
+		"SINE and SQUARE at the same freq differ")
+
 	# --- determinism ---
 	check(Synth.tone(440, 0.1).data == Synth.tone(440, 0.1).data, "tone is deterministic")
 
@@ -63,11 +75,14 @@ func _init() -> void:
 		var w := load(path) as AudioStreamWAV
 		check(w != null and w.data.size() > 0 and not w.stereo and w.mix_rate == SR,
 			"%s.wav is a non-empty mono 44100 stream" % name)
-	# CCAudio re-asserts the loop flag on load (import drops it); verify
-	# an AudioStreamWAV accepts it being set back.
+	# music_loop.wav.import sets edit/loop_mode=2 (Forward) -> the imported
+	# resource loops with no runtime fix-up.
 	var loop := load("res://assets/audio/music_loop.wav") as AudioStreamWAV
-	loop.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	loop.loop_begin = 0
-	check(loop.loop_mode == AudioStreamWAV.LOOP_FORWARD, "music_loop accepts a forward-loop flag")
+	check(loop.loop_mode == AudioStreamWAV.LOOP_FORWARD, "music_loop imports as a forward loop")
+	check(loop.loop_end > loop.mix_rate, "music_loop has a real loop region (> 1s)")
+
+	# SFX are imported as PCM (not lossy QOA) -- crisp synth transients.
+	var pcm := load("res://assets/audio/match.wav") as AudioStreamWAV
+	check(pcm.format == AudioStreamWAV.FORMAT_16_BITS, "SFX import is 16-bit PCM, not QOA")
 
 	finish("audio")

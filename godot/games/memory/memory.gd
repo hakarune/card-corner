@@ -34,6 +34,7 @@ var _board_host := Control.new()
 var _tiles: Array[CardView] = []
 var _modal: Panel
 var _modal_label: Label
+var _ai_result: MemoryFlip.Result = null
 
 
 func _ready() -> void:
@@ -60,6 +61,7 @@ func _start_game() -> void:
 	_human_first = -1
 	_locked = false
 	_pending = Callable()
+	_ai_result = null
 	_modal.visible = false
 	set_process(true)
 	_build_board()
@@ -79,9 +81,6 @@ func _maybe_start_ai_turn() -> void:
 		return
 	if _game.is_ai_turn():
 		_schedule(AI_TURN_DELAY, _run_ai_turn)
-
-
-var _ai_result: MemoryFlip.Result = null
 
 
 func _run_ai_turn() -> void:
