@@ -8,7 +8,7 @@ config_version=5
 config/name="Card Corner"
 config/version="0.1.0"
 config/description="A kid-friendly card game suite: Go Fish, Old Maid, Memory, and Letter Match."
-run/main_scene="res://Main.tscn"
+run/main_scene="res://ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -33,3 +33,4 @@ driver/enable_input=false
 [autoload]
 
 CCAudio="*res://ui/cc_audio.gd"
+CCRouter="*res://ui/cc_router.gd"

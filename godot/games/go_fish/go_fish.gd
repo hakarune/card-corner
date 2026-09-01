@@ -48,6 +48,9 @@ func configure(p_difficulty: int) -> void:
 
 func _ready() -> void:
 	super._ready()
+	var cfg := CCRouter.consume()
+	if cfg.has("difficulty"):
+		difficulty = cfg["difficulty"]
 	_theme = ThemeData.card_theme("go_fish")
 	_build_ui()
 	_start_game()
@@ -239,7 +242,7 @@ func _build_ui() -> void:
 	menu_btn.text = "Menu"
 	menu_btn.position = Vector2(ThemeData.WINDOW_SIZE.x - 120, 16)
 	menu_btn.size = Vector2(96, 40)
-	menu_btn.pressed.connect(func(): go_to_menu.emit())
+	menu_btn.pressed.connect(func(): CCRouter.goto_menu())
 	add_child(menu_btn)
 
 	_build_modal()
@@ -270,7 +273,7 @@ func _build_modal() -> void:
 	to_menu.text = "Menu"
 	to_menu.size = Vector2(200, ThemeData.MIN_TOUCH_TARGET)
 	to_menu.position = Vector2(360, 170)
-	to_menu.pressed.connect(func(): go_to_menu.emit())
+	to_menu.pressed.connect(func(): CCRouter.goto_menu())
 	_modal.add_child(to_menu)
 
 
