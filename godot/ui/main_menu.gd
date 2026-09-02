@@ -1,8 +1,9 @@
 extends Control
 ## Main menu: pick one of the four games. Ported from LauncherScreen
-## (legacy/ui/launcher.py). The launcher icons carry the game identity now,
-## so tiles are a clean white card with a thin game-colour accent border --
-## no solid colour fill behind the icon.
+## (legacy/ui/launcher.py). The launcher art IS the button now -- no white
+## card, no border box at rest. Each tile shows the game's illustration at
+## full size with its name in a marker font overlapping the lower edge; a
+## faint game-colour glow appears on hover/press.
 ## (Update-check UI is intentionally not ported -- deferred.)
 
 const GAMES := [
@@ -12,9 +13,15 @@ const GAMES := [
 	{"key": "letter_match", "label": "Letter Match"},
 ]
 
-const TILE_W := 420.0
-const TILE_H := 220.0
-const GAP := 44.0
+const TILE_W := 380.0
+const TILE_H := 292.0
+const GAP_X := 20.0
+## < TILE_H on purpose: rows overlap inside the art's transparent padding so
+## the labels sit between rows the way the mock-up shows.
+const ROW_PITCH := 268.0
+const GRID_TOP := 132.0
+
+const LABEL_FONT_PATH := "res://assets/fonts/PermanentMarker-Regular.ttf"
 
 var _mute_btn: MenuToggle
 var _full_btn: MenuToggle
@@ -37,26 +44,26 @@ func _build() -> void:
 	_center_label("Card Corner", 40, 58, ThemeData.TEXT_DARK)
 	_center_label("Pick a game to play!", 108, 26, ThemeData.TEXT_MUTED)
 
-	var grid_w := 2 * TILE_W + GAP
+	var grid_w := 2 * TILE_W + GAP_X
 	var start_x := (ThemeData.WINDOW_SIZE.x - grid_w) * 0.5
-	var start_y := 168.0
+	var label_font := _label_font()
 
 	for i in GAMES.size():
 		var g: Dictionary = GAMES[i]
 		var col := i % 2
 		var row := i / 2
-		var pos := Vector2(start_x + col * (TILE_W + GAP), start_y + row * (TILE_H + GAP))
+		var pos := Vector2(start_x + col * (TILE_W + GAP_X), GRID_TOP + row * ROW_PITCH)
 		var accent: Color = ThemeData.GAME_COLORS[g["key"]]
 
 		var btn := Button.new()
 		btn.position = pos
 		btn.size = Vector2(TILE_W, TILE_H)
 		btn.focus_mode = Control.FOCUS_NONE
-		var normal := _tile_box(accent, false)
-		btn.add_theme_stylebox_override("normal", normal)
-		btn.add_theme_stylebox_override("disabled", normal)
-		btn.add_theme_stylebox_override("hover", _tile_box(accent, true))
-		btn.add_theme_stylebox_override("pressed", _tile_box(accent, true))
+		var empty := StyleBoxEmpty.new()
+		btn.add_theme_stylebox_override("normal", empty)
+		btn.add_theme_stylebox_override("disabled", empty)
+		btn.add_theme_stylebox_override("hover", _hover_box(accent))
+		btn.add_theme_stylebox_override("pressed", _hover_box(accent))
 		btn.pressed.connect(_select.bind(g["key"]))
 		add_child(btn)
 
@@ -64,40 +71,51 @@ func _build() -> void:
 		if art != null:
 			var tr := TextureRect.new()
 			tr.texture = art
-			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			# COVERED fills the tile and crops the art's transparent padding, so
+			# the rounded illustration panel reads edge-to-edge like the mock-up.
+			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 			# EXPAND_IGNORE_SIZE: without this the 512px source sets the rect's
 			# minimum size, so `size` below is ignored and the art spills out of
 			# the tile, over its neighbours and the label. Clip as a backstop.
 			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tr.clip_contents = true
-			tr.position = pos + Vector2(16, 12)
-			tr.size = Vector2(TILE_W - 32, TILE_H - 78)
+			tr.position = pos
+			tr.size = Vector2(TILE_W, TILE_H)
 			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(tr)
 
 		var lbl := Label.new()
 		lbl.text = g["label"]
-		lbl.position = pos + Vector2(0, TILE_H - 56)
-		lbl.size = Vector2(TILE_W, 44)
+		lbl.position = pos + Vector2(0, TILE_H - 58)
+		lbl.size = Vector2(TILE_W, 60)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.add_theme_font_size_override("font_size", 32)
-		lbl.add_theme_color_override("font_color", ThemeData.TEXT_DARK)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		if label_font != null:
+			lbl.add_theme_font_override("font", label_font)
+		lbl.add_theme_font_size_override("font_size", 44)
+		lbl.add_theme_color_override("font_color", Color.BLACK)
+		# white sticker halo -- keeps the name readable over busy art
+		lbl.add_theme_color_override("font_outline_color", ThemeData.PANEL)
+		lbl.add_theme_constant_override("outline_size", 8)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(lbl)
 
 	_build_toggles()
 
 
-func _tile_box(accent: Color, hovered: bool) -> StyleBoxFlat:
+func _hover_box(accent: Color) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = ThemeData.PANEL if not hovered else accent.lerp(ThemeData.PANEL, 0.82)
-	sb.set_corner_radius_all(22)
+	sb.bg_color = Color(accent.r, accent.g, accent.b, 0.12)
+	sb.set_corner_radius_all(28)
 	sb.set_border_width_all(4)
 	sb.border_color = accent
-	sb.shadow_color = Color(0, 0, 0, 0.12)
-	sb.shadow_size = 6
-	sb.shadow_offset = Vector2(0, 3)
 	return sb
+
+
+func _label_font() -> Font:
+	if ResourceLoader.exists(LABEL_FONT_PATH):
+		return load(LABEL_FONT_PATH)
+	return null
 
 
 func _build_toggles() -> void:
