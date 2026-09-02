@@ -13,13 +13,15 @@ const GAMES := [
 	{"key": "letter_match", "label": "Letter Match"},
 ]
 
-const TILE_W := 380.0
-const TILE_H := 292.0
-const GAP_X := 20.0
-## < TILE_H on purpose: rows overlap inside the art's transparent padding so
-## the labels sit between rows the way the mock-up shows.
-const ROW_PITCH := 268.0
-const GRID_TOP := 132.0
+## The four tiles fill a 2x2 grid between GRID_TOP and GRID_BOTTOM, centred
+## horizontally. Cells never overlap: a gutter of GUTTER_PCT * cell-size
+## sits between them on both axes. CELL_ASPECT is tuned to the illustration
+## panels so KEEP_ASPECT_COVERED shows them whole with only a hair of crop.
+const GRID_TOP := 150.0
+const GRID_BOTTOM := 700.0
+const CELL_ASPECT := 1.30
+const GUTTER_PCT := 0.05
+const LABEL_H := 58.0
 
 const LABEL_FONT_PATH := "res://assets/fonts/PermanentMarker-Regular.ttf"
 
@@ -44,7 +46,13 @@ func _build() -> void:
 	_center_label("Card Corner", 40, 58, ThemeData.TEXT_DARK)
 	_center_label("Pick a game to play!", 108, 26, ThemeData.TEXT_MUTED)
 
-	var grid_w := 2 * TILE_W + GAP_X
+	# Solve cell + gutter so 2 cells + 1 gutter exactly span the grid box,
+	# with gutter = GUTTER_PCT of the cell on each axis.
+	var cell_h := (GRID_BOTTOM - GRID_TOP) / (2.0 + GUTTER_PCT)
+	var gutter_y := cell_h * GUTTER_PCT
+	var cell_w := cell_h * CELL_ASPECT
+	var gutter_x := cell_w * GUTTER_PCT
+	var grid_w := 2.0 * cell_w + gutter_x
 	var start_x := (ThemeData.WINDOW_SIZE.x - grid_w) * 0.5
 	var label_font := _label_font()
 
@@ -52,12 +60,14 @@ func _build() -> void:
 		var g: Dictionary = GAMES[i]
 		var col := i % 2
 		var row := i / 2
-		var pos := Vector2(start_x + col * (TILE_W + GAP_X), GRID_TOP + row * ROW_PITCH)
+		var pos := Vector2(
+			start_x + col * (cell_w + gutter_x),
+			GRID_TOP + row * (cell_h + gutter_y))
 		var accent: Color = ThemeData.GAME_COLORS[g["key"]]
 
 		var btn := Button.new()
 		btn.position = pos
-		btn.size = Vector2(TILE_W, TILE_H)
+		btn.size = Vector2(cell_w, cell_h)
 		btn.focus_mode = Control.FOCUS_NONE
 		var empty := StyleBoxEmpty.new()
 		btn.add_theme_stylebox_override("normal", empty)
@@ -80,14 +90,14 @@ func _build() -> void:
 			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tr.clip_contents = true
 			tr.position = pos
-			tr.size = Vector2(TILE_W, TILE_H)
+			tr.size = Vector2(cell_w, cell_h)
 			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(tr)
 
 		var lbl := Label.new()
 		lbl.text = g["label"]
-		lbl.position = pos + Vector2(0, TILE_H - 58)
-		lbl.size = Vector2(TILE_W, 60)
+		lbl.position = pos + Vector2(0, cell_h - LABEL_H - 4)
+		lbl.size = Vector2(cell_w, LABEL_H)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		if label_font != null:
